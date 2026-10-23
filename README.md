@@ -16,14 +16,25 @@ Después entrá a http://localhost:8765. Para cortarlo, Ctrl+C.
 
 (Abrir `index.html` con doble clic no alcanza: la app necesita un servidor, aunque sea local.)
 
-## Publicarla gratis e instalarla en el iPhone
+## Dónde está publicada
 
-1. Entrá a https://app.netlify.com/drop (te pide crear una cuenta gratuita).
-2. Arrastrá esta carpeta entera. En unos segundos te da una dirección del tipo `https://algo.netlify.app`.
-3. En el iPhone, abrí esa dirección en **Safari**, tocá **Compartir** → **Agregar a inicio**.
-4. Listo: queda el ícono de Kilo en la pantalla de inicio y abre a pantalla completa.
+**https://marea-bice.vercel.app**
 
-Cada vez que cambies algo, volvé a arrastrar la carpeta en Netlify (en el mismo sitio) y subí el número de `CACHE` en `sw.js` (por ejemplo `marea-v2`) para que el teléfono tome la versión nueva.
+El código vive en GitHub (`syoung29/marea`) y Vercel está conectado al repo: cada cambio que se sube a la rama `main` se publica solo en esa dirección, en unos segundos.
+
+```
+git add -A
+git commit -m "Qué cambió"
+git push
+```
+
+Si cambiás qué archivos usa la app (agregás o renombrás uno), sumalo a la lista de `sw.js` y subí el número de `CACHE` (por ejemplo `marea-v2`) para que el teléfono no se quede con lo viejo.
+
+## Instalarla en el iPhone
+
+1. Abrí https://marea-bice.vercel.app en **Safari**.
+2. Tocá **Compartir** → **Agregar a inicio** → **Agregar**.
+3. Queda el ícono de Kilo en la pantalla de inicio y abre a pantalla completa, también sin conexión.
 
 ## Dónde quedan tus datos
 
