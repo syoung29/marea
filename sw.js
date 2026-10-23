@@ -1,7 +1,7 @@
 // Service worker: guarda la app para que abra sin conexión.
 // Red primero (así siempre ves la última versión) y, si no hay internet, lo guardado.
 // Al publicar cambios, subí el número de versión para limpiar lo viejo.
-const CACHE = 'marea-v1';
+const CACHE = 'marea-v2';
 const ARCHIVOS = [
   './', './index.html', './css/app.css', './manifest.webmanifest',
   './js/app.js', './js/motor.js', './js/ejercicios.js', './js/mascotas.js', './js/util.js',

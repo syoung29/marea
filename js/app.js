@@ -5,7 +5,7 @@ import {
   ENFOQUES, NIVEL, generar, elegirComp, proyeccion, veredicto, objetivoEj, rpeTxt, rendimientoSemana, veredictoSemana,
   sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie
 } from './motor.js';
-import { kilo, carril, escena, act, decir, conectarKilo, iniciarMascotas, rodarEscena, rodarCarril, REDUCE } from './mascotas.js';
+import { kilo, escena, act, decir, conectarKilo, iniciarMascotas, rodarEscena, vueltaDisco, REDUCE } from './mascotas.js';
 
 const LS = 'marea.datos';
 const nombreDe = k => ejDe(k).n;
@@ -62,7 +62,7 @@ function rutinaBase(p, objetivos = []) {
 
 /* ================= ESTADO Y GUARDADO ================= */
 let state = null, saludado = false;
-const ui = { view: 'onb', tab: 'semana', wk: null, open: null, paso: 0, draft: null, descartados: new Set(), celebrar: null, justCreated: false };
+const ui = { view: 'onb', tab: 'semana', wk: null, planSel: null, open: null, paso: 0, draft: null, descartados: new Set(), celebrar: null, justCreated: false };
 
 const nuevoCiclo = (p, objetivos, inicio) => ({ id: nid('c'), inicio: iso(inicio), comp: elegirComp(p, inicio), snap: clone({ perfil: p, objetivos }), overrides: {}, logs: {}, saltos: [], inicioRM: { ...p.rm, ...p.salto }, cierre: null });
 const inicioDe = cuando => { const b = lunes(new Date()); return cuando === 'este' ? b : addD(b, 7); };
@@ -168,7 +168,7 @@ function renderSemana(plan, cy, raw, c) {
   ${haciaDonde(plan, cy)}
   ${recs.length ? `<div class="banner rec"><span>Con lo que cargaste, subió tu 1RM estimado: ${recs.map(r => `<b>${esc(corto(r.k))}</b> <span class="num">${plan.p.rm[r.k] > 0 ? fmt(plan.p.rm[r.k], 'kg') + ' → ' : ''}${fmt(r.v, 'kg')}</span>`).join(' · ')}. ¿Lo actualizo? Las cargas sugeridas se recalculan.</span><span class="row"><button class="btn small ghost" data-act="descartar" data-id="${recs.map(r => r.k + r.v).join(',')}">Ahora no</button><button class="btn small primary" data-act="usarRM" data-rs="${recs.map(r => r.k + ':' + r.v).join(',')}">Actualizar</button></span></div>` : ''}
   ${sug ? `<div class="banner warn"><span>Esta semana quedaste por debajo de lo planeado. Conviene <b>adelantar la descarga a la semana ${wi + 2}</b>.</span><button class="btn small" data-act="adelantar" data-i="${wi + 1}">Adelantar descarga</button></div>` : ''}
-  <section class="card" aria-label="Semana seleccionada">${carril()}
+  <section class="card" aria-label="Semana seleccionada">
     <div class="week-head">
       <button class="icon-btn" data-act="wk" data-d="-1" ${wi === 0 ? 'disabled' : ''} aria-label="Semana anterior">‹</button>
       <div class="mid">
@@ -188,9 +188,9 @@ function renderSemana(plan, cy, raw, c) {
 // Hacia dónde vamos: proyección al cierre de lo que más importa, siempre a la vista
 function haciaDonde(plan, cy) {
   const obj = plan.objetivos || [], ejObj = obj.filter(o => o.tipo === 'ej'), grupos = obj.filter(o => o.tipo === 'grupo');
-  // Primero lo que elegiste mejorar; después, tus básicos con marca, hasta 4
+  // Primero lo que elegiste mejorar; después todo lo que cargaste con marca inicial (o con «No sé»)
   const metas = ejObj.map(o => o.clave).filter(k => MARCAS.includes(k) || SALTOS.includes(k));
-  const keys = [...new Set([...metas, ...MARCAS.filter(k => plan.p.rm[k] > 0), ...SALTOS.filter(k => plan.p.salto[k] > 0)])].slice(0, Math.max(4, metas.length));
+  const keys = [...new Set([...metas, ...MARCAS.filter(k => plan.p.rm[k] > 0 || plan.p.nose[k]), ...SALTOS.filter(k => plan.p.salto[k] > 0 || plan.p.nose[k])])];
   const fin = addD(parse(cy.inicio), plan.weeks.length * 7 - 1);
   const items = keys.map(k => {
     const isJ = SALTOS.includes(k), unit = isJ ? 'cm' : 'kg', pr = proyeccion(plan, k), goal = (ejObj.find(o => o.clave === k) || {}).objetivo || 0;
@@ -313,7 +313,7 @@ function renderProgreso(plan, cy) {
       ${c.length ? c.map(x => `<div class="sum-row"><span>${esc(corto(x.e))}</span><span class="num">${mejorTxt(x.firstEn, P)} → ${mejorTxt(x.lastEn, P)} · ${(x.cambio >= 0 ? '+' : '') + x.cambio.toFixed(1)}%</span></div>`).join('') : '<p class="note" style="margin-top:8px">Cuando cargues ejercicios de este grupo, acá ves cuánto mejoraste en cada uno.</p>'}</section>`;
   }).join('');
   const otros = cambios(plan, cy).filter(x => !MARCAS.includes(x.e) && !SALTOS.includes(x.e) && !obj.some(o => o.tipo === 'grupo' && o.grupo === ejDe(x.e).g));
-  return `<section class="card">${carril()}<div class="kilo-edge">${kilo('', 'focus')}</div><div class="eyebrow">Progreso del ciclo ${state.ciclos.length}</div>
+  return `<section class="card"><div class="kilo-edge">${kilo('', 'focus')}</div><div class="eyebrow">Progreso del ciclo ${state.ciclos.length}</div>
     <h2 style="font-size:20px;margin-top:4px">Cómo vas</h2>
     <p class="note" style="margin-top:6px">Cada punto es tu 1RM ${ay('rm')} estimado según tu mejor serie del entrenamiento. Si hacés justo lo planeado, queda igual; si levantás más, sube. La línea punteada es la proyección al cierre del ciclo.</p>
     <div class="chart-legend" style="margin-top:10px"><span><b style="border-color:var(--load)"></b>Lo que levantaste</span><span><b style="border-color:var(--muted);border-top-style:dashed"></b>Proyección</span><span><b style="border-color:var(--accent);border-top-style:dotted"></b>Objetivo</span><span><b style="border-color:color-mix(in srgb,var(--deload) 40%,transparent);border-top-width:8px"></b>Descarga</span></div></section>
@@ -324,7 +324,7 @@ function renderProgreso(plan, cy) {
 }
 
 /* ---------- Plan ---------- */
-function chart(plan, cur, raw) {
+function chart(plan, cur, raw, sel) {
   const n = plan.weeks.length, W = Math.max(560, n * 34 + 90), H = 262, l = 44, r = 46, t = 40, bt = 42, pw = W - l - r, ph = H - t - bt, bw = pw / n;
   const yV = v => t + ph - (v / 1.3) * ph, yI = v => t + ph - ((v - 50) / 50) * ph;
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de trabajo e intensidad por semana">`;
@@ -346,16 +346,23 @@ function chart(plan, cur, raw) {
   s += `<polyline class="int-line" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
   pts.forEach(p => { s += `<circle class="int-dot" cx="${p[0]}" cy="${p[1]}" r="3.2"/>`; });
   if (cur >= 0) s += `<text class="now-t" x="${l + cur * bw + bw / 2}" y="${t + ph + 32}" text-anchor="middle">hoy</text>`;
-  plan.weeks.forEach((w, i) => { s += `<rect class="hit" data-act="irSemana" data-i="${i}" x="${l + i * bw}" y="${t - 30}" width="${bw}" height="${ph + 50}"><title>Semana ${i + 1}: ${tipoTxt(plan, w)}</title></rect>`; });
+  s += `<rect class="sel" x="${l + sel * bw + 1}" y="${t - 6}" width="${bw - 2}" height="${ph + 12}" rx="6"/>`;
+  plan.weeks.forEach((w, i) => { s += `<rect class="hit" data-act="verSemPlan" aria-label="Ver semana ${i + 1}" data-i="${i}" x="${l + i * bw}" y="${t - 30}" width="${bw}" height="${ph + 50}"><title>Semana ${i + 1}: ${tipoTxt(plan, w)}</title></rect>`; });
   let kd = '';
-  if (cur >= 0) { const w = plan.weeks[cur]; kd = `<div class="kilo-ride" style="left:${(l + cur * bw + bw / 2) / W * 100}%;top:${yV(w.vol) / H * 100}%">${kilo('', w.tipo === 'descarga' ? 'sleep' : w.tipo === 'test' ? 'focus' : 'happy')}</div>`; }
+  // Kilo se para sobre la semana que estás mirando
+  { const w = plan.weeks[sel]; kd = `<div class="kilo-ride" style="left:${(l + sel * bw + bw / 2) / W * 100}%;top:${yV(w.vol) / H * 100}%">${kilo('', w.tipo === 'descarga' ? 'sleep' : w.tipo === 'test' ? 'focus' : 'happy')}</div>`; }
   return s + '</svg>' + kd;
 }
 function renderPlan(plan, cy, raw, c) {
   const p = plan.p, N = plan.weeks.length, ini = parse(cy.inicio);
   const nextDes = plan.weeks.findIndex((x, i) => i > c && x.tipo !== 'carga');
   const fases = plan.fases.map((f, i) => ({ f, i, bs: plan.blocks.filter(b => b.fase === i) })).filter(x => x.bs.length);
-  return `<section class="card">${carril()}<div class="eyebrow">Ciclo ${state.ciclos.length} · ${esc(ENFOQUES[p.enfoque])}</div>
+  if (ui.planSel == null || ui.planSel >= N) ui.planSel = c;
+  const si = ui.planSel, sw = plan.weeks[si], sf = plan.fases[sw.fase];
+  const det = sw.tipo === 'test' ? [['Básicos', 'Test de 1RM'], ['Resto', 'Liviano u opcional']]
+    : [['Intensidad', `${Math.round(sw.int)}% 1RM`], ['Esquema', `${sw.sets} × ${sw.reps}`], ['RPE', sw.tipo === 'descarga' ? '6' : rpeTxt(sw)]];
+  if (sw.plyo) det.push(['Saltos', `${sw.plyo.c} contactos`]);
+  return `<section class="card"><div class="kilo-edge">${kilo('', plan.weeks[c].tipo === 'descarga' ? 'sleep' : plan.weeks[c].tipo === 'test' ? 'focus' : 'happy')}</div><div class="eyebrow">Ciclo ${state.ciclos.length} · ${esc(ENFOQUES[p.enfoque])}</div>
     <h2 style="font-size:22px;margin:4px 0 14px">${N} semanas · ${fd(ini)} – ${fd(addD(ini, N * 7 - 1))}</h2>
     <div class="cols">
       <dl class="meta-list">
@@ -378,8 +385,13 @@ function renderPlan(plan, cy, raw, c) {
   <section class="card">
     <div class="chart-head"><div><div class="eyebrow">La marea del ciclo</div><h2>Cómo se reparte el trabajo semana a semana</h2></div>
       <div class="legend"><span><b style="background:var(--load)"></b>Carga</span><span><b style="background:var(--deload)"></b>Descarga</span><span><b style="background:var(--test)"></b>Test / competencia</span><span><b style="background:transparent;border:1.5px solid var(--ink);border-radius:50%"></b>Intensidad</span></div></div>
-    <p class="note" style="margin-bottom:10px">Arriba, las fases del ciclo. Cada <b style="color:var(--ink)">barra</b> es cuánto trabajo toca esa semana ${ay('trabajo')} y cada <b style="color:var(--ink)">punto</b> qué tan pesado es, en % de tu 1RM ${ay('intensidad')}. Tocá una semana para ir a ella.</p>
-    <div class="chart-wrap"><div class="chart-inner">${chart(plan, raw >= 0 && raw < N ? c : -1, raw)}</div></div>
+    <p class="note" style="margin-bottom:10px">Arriba, las fases del ciclo. Cada <b style="color:var(--ink)">barra</b> es cuánto trabajo toca esa semana ${ay('trabajo')} y cada <b style="color:var(--ink)">punto</b> qué tan pesado es, en % de tu 1RM ${ay('intensidad')}. Tocá una semana para ver qué tiene.</p>
+    <div class="chart-wrap"><div class="chart-inner">${chart(plan, raw >= 0 && raw < N ? c : -1, raw, si)}</div></div>
+    <div class="plan-sel" role="status">
+      <div class="row" style="gap:8px"><b>Semana ${si + 1}</b><span class="pill ${sw.tipo}">${tipoTxt(plan, sw)}</span><span class="note">${esc(sf.n)} · ${fd(addD(ini, si * 7))} – ${fd(addD(ini, si * 7 + 6))}${si === c && raw >= 0 && raw < N ? ' · esta semana' : ''}</span></div>
+      <dl class="week-goal" style="margin-top:10px">${det.map(([a, b]) => `<div><dt>${a}</dt><dd>${b}</dd></div>`).join('')}</dl>
+      <div><button class="btn small" data-act="irSemana" data-i="${si}">Ver los entrenamientos de esta semana</button></div>
+    </div>
     <div class="fases">${fases.map(x => `<div class="fase"><span class="fase-dot ${x.i % 2 ? 'alt' : ''}"></span><div><b>${esc(x.f.n)}</b> <span class="note">· semanas ${x.bs[0].start + 1}–${x.bs[x.bs.length - 1].start + x.bs[x.bs.length - 1].len}</span><p class="note">${esc(x.f.obj)}</p></div></div>`).join('')}</div>
     ${plan.comp ? `<p class="note" style="margin-top:8px">Armado hacia atrás desde ${esc(plan.comp.nombre)}. ${esc(plan.aviso || '')}</p>` : ''}
   </section>
@@ -435,7 +447,7 @@ const sesBloque = s => `<div class="rut-s" data-s="${s.id}">
   <div><button type="button" class="btn small" data-act="addEx">+ Ejercicio</button></div></div>`;
 function renderRutina() {
   const auto = state.rutinaModo === 'auto';
-  return `<section class="card">${carril()}<div class="kilo-edge">${kilo()}</div><div class="eyebrow">Tu rutina</div>
+  return `<section class="card"><div class="kilo-edge">${kilo()}</div><div class="eyebrow">Tu rutina</div>
     <h2 style="font-size:20px;margin:4px 0 12px">Tus entrenamientos de cada semana</h2>
     <div class="seg" role="group" aria-label="Quién arma la rutina"><button class="${auto ? 'on' : ''}" data-act="rutModo" data-v="auto">Sugerida</button><button class="${auto ? '' : 'on'}" data-act="rutModo" data-v="propia">Armada por mí</button></div>
     <p class="note" id="rutNota" style="margin-top:10px">${auto ? 'La armé según tus días, tu enfoque y lo que querés mejorar. Si cambiás algo, pasa a ser tuya.' : 'Elegí los ejercicios de la lista. Los cambios se guardan solos.'}
@@ -557,7 +569,7 @@ function renderOnb() {
       <div class="strip" aria-hidden="true">${pl.weeks.map(w => `<i class="${w.tipo}"></i>`).join('')}</div>
       ${pl.aviso ? `<p class="note">${esc(pl.aviso)}</p>` : ''}`;
   }
-  $('#main').innerHTML = `<div class="onb"><section class="card onb-card" aria-label="Primeros pasos">${carril()}
+  $('#main').innerHTML = `<div class="onb"><section class="card onb-card" aria-label="Primeros pasos">
     <div class="onb-top"><div class="dots-prog" aria-hidden="true">${PASOS.slice(1).map((_, k) => `<i class="${k < i ? 'on' : ''}"></i>`).join('')}</div><span class="note">Paso ${i} de ${PASOS.length - 1}</span></div>
     <div class="onb-grid">
       <div class="onb-kilo">${kilo()}<div class="say" role="status">${say}</div></div>
@@ -693,6 +705,7 @@ document.addEventListener('click', e => {
   if (a === 'ayuda') { const [t, d] = AYUDA[el.dataset.t]; openModal(`<h2 style="font-size:20px">${esc(t)}</h2><p>${esc(d)}</p><div class="row" style="justify-content:flex-end"><button class="btn primary" data-act="cerrarModal">Entendido</button></div>`); return; }
   if (a === 'tab') { ui.tab = el.dataset.t; ui.open = null; render(); return; }
   if (a === 'wk') { ui.wk += +el.dataset.d; ui.open = null; render(); return; }
+  if (a === 'verSemPlan') { ui.planSel = +el.dataset.i; render(); return; }
   if (a === 'irSemana') { ui.wk = +el.dataset.i; ui.tab = 'semana'; ui.open = null; render(); scrollTo(0, 0); return; }
   if (a === 'abrir') {
     ui.open = ui.open === el.dataset.s ? null : el.dataset.s; render();
@@ -809,8 +822,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modalR
 /* ================= ARRANQUE ================= */
 state = ejemplo(); ui.draft = nuevoDraft();
 try { const s = localStorage.getItem(LS); if (s) { state = migrar(JSON.parse(s)); ui.view = 'dash'; } } catch (e) { /* almacenamiento bloqueado: se usa el ejemplo */ }
-$('header.top').insertAdjacentHTML('beforeend', carril('bottom'));
 iniciarMascotas();
 render();
-setTimeout(() => rodarCarril($('header .lane')), 1200);
+setTimeout(() => vueltaDisco(), 2500);
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});

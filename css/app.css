@@ -115,15 +115,9 @@ header.top{position:relative;display:flex;align-items:center;justify-content:spa
 .bubble.on{opacity:1;transform:none}
 @media (max-width:560px){.bubble,.scene.tall .bubble{right:auto;left:12px;bottom:12px;max-width:calc(100% - 150px)}}
 
-/* Carriles: Disco pasa rodando por el borde del encabezado y de algunas tarjetas */
-.lane{position:absolute;left:0;right:0;height:0;pointer-events:none;z-index:3}
-.lane.top{top:0}
-.lane.bottom{bottom:0}
-.lane .disco{position:absolute;bottom:0;left:-40px;width:24px;opacity:0}
-.lane .disco.go{animation:carril 8s linear forwards}
-.lane .disco.go svg{animation:giro 8s linear forwards}
-@keyframes carril{0%{left:-40px;opacity:1}100%{left:calc(100% + 20px);opacity:1}}
-@keyframes giro{to{transform:rotate(1440deg)}}
+/* Disco da la vuelta por el borde de la pantalla (lo mueve mascotas.js) */
+.disco-tour{position:fixed;left:0;top:0;width:28px;z-index:40;pointer-events:none;opacity:0;will-change:transform}
+.disco-tour svg{display:block;width:100%;height:auto}
 
 /* Kilo */
 .kilo-svg{display:block;width:100%;height:auto;overflow:visible;cursor:pointer}
@@ -144,7 +138,7 @@ header.top{position:relative;display:flex;align-items:center;justify-content:spa
 .kilo-edge .kilo-svg,.kilo-ride .kilo-svg,.kilo-modal .kilo-svg{cursor:default}
 .kilo-ride{position:absolute;width:30px;transform:translate(-50%,-94%);pointer-events:none}
 .kilo-modal{position:absolute;top:-46px;left:28px;width:56px;pointer-events:none;z-index:1}
-@media (prefers-reduced-motion:reduce){.bubble,.kilo-svg .k-look{transition:none}.scene *,.kilo-svg *,.float-kilo,.disco,.disco svg{animation:none!important}.lane{display:none}}
+@media (prefers-reduced-motion:reduce){.bubble,.kilo-svg .k-look{transition:none}.scene *,.kilo-svg *,.float-kilo,.disco,.disco svg{animation:none!important}.disco-tour{display:none}}
 
 /* Semana */
 .week-head{display:flex;align-items:center;gap:12px}
@@ -287,3 +281,6 @@ textarea{min-height:240px;font-family:var(--f-mono);font-size:12px}
 .modal-wrap{position:relative;width:min(680px,100%);max-height:calc(100% - 46px);margin-top:46px;display:flex}
 .modal{background:var(--surface);border-radius:20px;width:100%;min-height:0;overflow:auto;padding:24px;display:grid;gap:18px}
 .foot{display:flex;justify-content:center}
+.plan-sel{display:grid;gap:4px;margin-top:12px;padding:14px;border-radius:14px;background:var(--sunk)}
+.plan-sel .week-goal{border-top:0;padding-top:0}
+svg .sel{fill:none;stroke:var(--accent);stroke-width:2}

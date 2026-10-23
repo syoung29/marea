@@ -25,8 +25,6 @@ export function kilo(cls = '', mood = 'happy', id = '') {
   </svg>`;
 }
 export const disco = () => `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="var(--load)"/><circle cx="20" cy="20" r="12.5" fill="none" stroke="var(--kilo)" stroke-opacity=".22" stroke-width="1.6"/><circle cx="20" cy="20" r="4.2" fill="var(--sky2)"/><circle cx="14.5" cy="12.5" r="1.8" fill="var(--kilo)"/><circle cx="25.5" cy="12.5" r="1.8" fill="var(--kilo)"/><path d="M15.5 27.5q4.5 3 9 0" fill="none" stroke="var(--kilo)" stroke-width="1.6" stroke-linecap="round"/></svg>`;
-// Carril por donde Disco pasa rodando (borde de una tarjeta o del encabezado)
-export const carril = (pos = 'top') => `<div class="lane ${pos}" aria-hidden="true"><div class="disco">${disco()}</div></div>`;
 
 function ola(y, a, lam) { let d = `M0 ${y} Q ${lam / 4} ${y - a} ${lam / 2} ${y}`; for (let x = lam / 2; x < 2400; x += lam / 2) d += ` T ${x + lam / 2} ${y}`; return d + ' V 200 H 0 Z'; }
 // La marea sube en semanas de carga, baja en descarga y está alta en el test
@@ -65,17 +63,39 @@ export function rodarEscena() {
   setTimeout(() => act($('#kilo'), 'waving', 1900), 4000);
   return true;
 }
-// Disco pasa rodando por un carril (borde del encabezado o de una tarjeta)
-export function rodarCarril(lane) {
-  const el = lane && lane.querySelector('.disco'); if (!el || REDUCE) return;
-  el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
+// Márgenes seguros del teléfono (barra de estado, borde inferior), medidos con un elemento invisible
+function margenes() {
+  const p = document.createElement('div');
+  p.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+  document.body.appendChild(p); const c = getComputedStyle(p);
+  const m = { t: parseFloat(c.paddingTop) || 0, r: parseFloat(c.paddingRight) || 0, b: parseFloat(c.paddingBottom) || 0, l: parseFloat(c.paddingLeft) || 0 };
+  p.remove(); return m;
+}
+// Disco da una vuelta completa por el borde de la pantalla, rodando (gira según la distancia que avanza)
+let vuelta = 0, ultimaVuelta = 0;
+export function vueltaDisco() {
+  if (REDUCE || vuelta) return;
+  const el = document.createElement('div'); el.className = 'disco-tour'; el.setAttribute('aria-hidden', 'true'); el.innerHTML = disco();
+  document.body.appendChild(el);
+  const T = 28, sep = 6, vel = 240, ins = margenes(), t0 = performance.now();
+  ultimaVuelta = Date.now();
+  const paso = now => {
+    const x0 = ins.l + sep, y0 = ins.t + sep, w = innerWidth - ins.l - ins.r - 2 * sep - T, h = innerHeight - ins.t - ins.b - 2 * sep - T, P = 2 * (w + h);
+    const d = (now - t0) / 1000 * vel;
+    if (d >= P || w <= 0 || h <= 0) { el.remove(); vuelta = 0; return; }
+    let x, y;
+    if (d < w) { x = d; y = 0; } else if (d < w + h) { x = w; y = d - w; } else if (d < 2 * w + h) { x = w - (d - w - h); y = h; } else { x = 0; y = h - (d - 2 * w - h); }
+    el.style.opacity = Math.min(1, d / 60, (P - d) / 60);
+    el.style.transform = `translate(${x0 + x}px,${y0 + y}px) rotate(${d / (T / 2) * 57.3}deg)`;
+    vuelta = requestAnimationFrame(paso);
+  };
+  vuelta = requestAnimationFrame(paso);
 }
 export function rodarDisco() {
   if (REDUCE) return;
   const d = $('#disco');
-  if (d && visible(d.parentElement) && Math.random() < .4) { rodarEscena(); return; }
-  const lanes = $$('.lane').filter(visible);
-  if (lanes.length) rodarCarril(lanes[Math.floor(Math.random() * lanes.length)]);
+  if (d && visible(d.parentElement) && Math.random() < .5) { rodarEscena(); return; }
+  if (Date.now() - ultimaVuelta > 40000) vueltaDisco();
 }
 
 let sayFn = () => {};
