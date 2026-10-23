@@ -825,4 +825,4 @@ try { const s = localStorage.getItem(LS); if (s) { state = migrar(JSON.parse(s))
 iniciarMascotas();
 render();
 setTimeout(() => vueltaDisco(), 2500);
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('./sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(() => {});

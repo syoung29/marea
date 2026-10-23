@@ -3,13 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Marea</title>
-  <meta name="description" content="Planificá tus semanas de carga y descarga y registrá lo que levantás.">
+  <title>Marea · Entrená en mareas</title>
+  <meta name="description" content="Cargá lo que levantás. Marea arma tus semanas de carga y descarga, compara cada entrenamiento con el plan y te dice cómo vas. Gratis y sin registrarte.">
   <meta name="theme-color" content="#EDF1F2" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0D161B" media="(prefers-color-scheme: dark)">
-  <!-- Instalable en iPhone: Safari → Compartir → Agregar a inicio -->
+  <!-- Vista previa al compartir el link (WhatsApp, Instagram, etc.) -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Marea">
+  <meta property="og:title" content="Marea · Entrená en mareas">
+  <meta property="og:description" content="Semanas de carga y descarga armadas para vos, y un registro de todo lo que levantás. Gratis.">
+  <meta property="og:image" content="https://marea-bice.vercel.app/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="es_AR">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Marea">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -19,22 +27,128 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Onest:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/sitio.css">
 </head>
 <body>
-  <div class="app">
+  <div class="app sitio">
     <header class="top">
-      <div class="logo">
+      <a class="logo" href="/" aria-label="Marea, inicio">
         <svg viewBox="0 0 34 20" aria-hidden="true"><path d="M1 13c4 0 4-8 8-8s4 8 8 8 4-8 8-8 4 8 8 8" fill="none" stroke="var(--load)" stroke-width="2.4" stroke-linecap="round"/><path d="M1 18c4 0 4-4 8-4s4 4 8 4 4-4 8-4 4 4 8 4" fill="none" stroke="var(--deload)" stroke-width="2.4" stroke-linecap="round"/></svg>
         marea
-      </div>
-      <nav class="tabs" id="tabs" aria-label="Secciones" hidden></nav>
-      <span class="save-state" id="saveState" role="status">Cargando…</span>
+      </a>
+      <nav class="site-nav" aria-label="Secciones">
+        <a href="#como">Cómo funciona</a>
+        <a href="#instalar">Instalarla</a>
+        <a class="btn primary small" href="/app/">Abrir Marea</a>
+      </nav>
     </header>
-    <main id="main" class="stack"></main>
-    <footer class="foot" id="foot" hidden><button class="btn ghost small" data-act="reset">Empezar de cero</button></footer>
+
+    <main class="stack">
+      <!-- sitio.js reemplaza esto por la escena animada; queda como texto para buscadores y sin JavaScript -->
+      <section id="hero" class="hero-fallback">
+        <h1>Entrená en mareas</h1>
+        <p>Cargá lo que levantás. Marea arma tus semanas de carga y descarga y te dice cómo vas.</p>
+      </section>
+
+      <div class="cta-row">
+        <a class="btn primary grande" href="/app/">Probar Marea gratis</a>
+        <a class="btn grande" href="#instalar">Cómo instalarla en el teléfono</a>
+        <span class="note">Sin registrarte. Tus datos quedan en tu teléfono.</span>
+      </div>
+
+      <section class="card bloque" id="como" aria-labelledby="como-t">
+        <div class="kilo-edge" data-kilo="happy"></div>
+        <div class="eyebrow">Cómo funciona</div>
+        <h2 id="como-t" class="titulo">De lo que levantás hoy a lo que levantás en 16 semanas</h2>
+        <ol class="pasos">
+          <li><span class="paso-n num">1</span><div><b>Contás cómo entrenás</b><p>Tus marcas, cuántos días entrenás, qué querés mejorar y si tenés una competencia. Si no sabés tu 1RM, tocás «No sé».</p></div></li>
+          <li><span class="paso-n num">2</span><div><b>Marea arma el ciclo</b><p>Fases, semanas de carga y de descarga, y los kilos de cada ejercicio, según tu nivel y cómo recuperás.</p></div></li>
+          <li><span class="paso-n num">3</span><div><b>Cargás tus series</b><p>Kilos y repeticiones al terminar. Marea las compara con lo planeado: si vas por debajo, te sugiere descargar; si vas por encima, te sube el 1RM.</p></div></li>
+        </ol>
+      </section>
+
+      <section class="muestra" aria-label="Así se ve">
+        <div class="card mini">
+          <div class="row" style="gap:8px"><b>Semana 6 de 16</b><span class="pill carga">Carga</span></div>
+          <span class="note">Fuerza máxima · 80% 1RM · RPE 8</span>
+          <div class="sum-row"><span>Sentadilla <span class="tag t-up">+3% vs plan</span></span><span class="num">107,5×5 105×5 105×5</span></div>
+          <div class="sum-row"><span>Press banca <span class="tag t-mid">en el plan</span></span><span class="num">82,5×5 82,5×5 82,5×5</span></div>
+          <div class="sum-row"><span>Salto vertical</span><span class="num">5 · 48 cm</span></div>
+        </div>
+        <div class="card mini">
+          <div class="eyebrow">Hacia dónde vamos</div>
+          <div class="dest"><div class="dest-top"><b>Sentadilla</b><span class="num">135 → <b>145 kg</b></span></div><div class="track"><div class="fill" style="width:58%"></div></div></div>
+          <div class="dest"><div class="dest-top"><b>Dominadas con lastre</b><span class="num">20 → <b>27,5 kg</b></span></div><div class="track"><div class="fill" style="width:35%"></div></div></div>
+          <div class="dest"><div class="dest-top"><b>Salto vertical</b><span class="num">46 → <b>50 cm</b></span></div><div class="track"><div class="fill" style="width:44%"></div></div></div>
+        </div>
+        <div class="card mini">
+          <div class="eyebrow">La marea del ciclo</div>
+          <svg class="marea-mini" viewBox="0 0 320 110" role="img" aria-label="Barras de carga que suben y bajan por semana, con descargas cada cuatro semanas">
+            <g class="mm">
+              <rect x="6" y="38" width="14" height="62" rx="3" class="c"/><rect x="26" y="34" width="14" height="66" rx="3" class="c"/><rect x="46" y="30" width="14" height="70" rx="3" class="c"/><rect x="66" y="27" width="14" height="73" rx="3" class="c"/>
+              <rect x="86" y="66" width="14" height="34" rx="3" class="d"/>
+              <rect x="106" y="40" width="14" height="60" rx="3" class="c"/><rect x="126" y="44" width="14" height="56" rx="3" class="c"/><rect x="146" y="48" width="14" height="52" rx="3" class="c"/><rect x="166" y="52" width="14" height="48" rx="3" class="c"/>
+              <rect x="186" y="72" width="14" height="28" rx="3" class="d"/>
+              <rect x="206" y="54" width="14" height="46" rx="3" class="c"/><rect x="226" y="58" width="14" height="42" rx="3" class="c"/><rect x="246" y="62" width="14" height="38" rx="3" class="c"/><rect x="266" y="66" width="14" height="34" rx="3" class="c"/>
+              <rect x="286" y="80" width="14" height="20" rx="3" class="t"/>
+            </g>
+          </svg>
+          <span class="note">Carga, descarga y test: el trabajo sube y baja para que progreses sin quemarte.</span>
+        </div>
+      </section>
+
+      <section class="card bloque" aria-labelledby="hace-t">
+        <div class="eyebrow">Lo que hace</div>
+        <h2 id="hace-t" class="titulo">Hecha para quien entrena con pesas y saltos</h2>
+        <ul class="hace">
+          <li><b>Periodización automática</b><span>Acumulación, fuerza, potencia y test, con descargas a tu ritmo. O el ritmo que elija tu entrenador.</span></li>
+          <li><b>Registro por serie</b><span>Kilos, repeticiones, lastre, saltos y lanzamientos. Más de 60 ejercicios para elegir, y los tuyos.</span></li>
+          <li><b>Compara con el plan</b><span>Cada entrenamiento te dice si quedaste arriba, en línea o abajo de lo planeado.</span></li>
+          <li><b>Proyección al cierre</b><span>Hasta dónde llegás si seguís el plan, y si tu objetivo es alcanzable en este ciclo.</span></li>
+          <li><b>Hacia una competencia</b><span>Cargás la fecha y el ciclo se arma hacia atrás para llegar en tu mejor momento.</span></li>
+          <li><b>Funciona sin internet</b><span>Se instala como una app y abre en el gimnasio aunque no haya señal.</span></li>
+        </ul>
+      </section>
+
+      <section class="card bloque" id="instalar" aria-labelledby="inst-t">
+        <div class="kilo-edge" data-kilo="focus"></div>
+        <div class="eyebrow">Instalarla</div>
+        <h2 id="inst-t" class="titulo">Tenela en la pantalla de inicio</h2>
+        <div class="cols">
+          <div>
+            <h3>iPhone</h3>
+            <ol class="lista">
+              <li>Abrí esta página en <b>Safari</b>.</li>
+              <li>Tocá <b>Compartir</b> (el cuadrado con la flecha).</li>
+              <li>Elegí <b>Agregar a inicio</b> y después <b>Agregar</b>.</li>
+            </ol>
+          </div>
+          <div>
+            <h3>Android</h3>
+            <ol class="lista">
+              <li>Abrí esta página en <b>Chrome</b>.</li>
+              <li>Tocá el menú <b>⋮</b> arriba a la derecha.</li>
+              <li>Elegí <b>Instalar app</b> o <b>Agregar a la pantalla principal</b>.</li>
+            </ol>
+          </div>
+        </div>
+        <div class="row" style="margin-top:16px"><a class="btn primary" href="/app/">Abrir Marea</a></div>
+      </section>
+
+      <section class="card bloque" aria-labelledby="priv-t">
+        <div class="eyebrow">Tus datos</div>
+        <h2 id="priv-t" class="titulo">Lo que entrenás es tuyo</h2>
+        <p class="parrafo">Marea no tiene cuentas ni servidores con tus datos: todo lo que cargás queda guardado en tu teléfono. No hay publicidad ni seguimiento. Podés descargar un respaldo cuando quieras y borrarlo todo con un toque.</p>
+        <p><a href="/privacidad">Leer la política de privacidad</a></p>
+      </section>
+    </main>
+
+    <footer class="site-foot">
+      <span>© 2026 Marea</span>
+      <a href="/privacidad">Privacidad</a>
+      <a href="/app/">Abrir la app</a>
+    </footer>
   </div>
-  <div id="modalRoot"></div>
-  <noscript>Marea necesita JavaScript para funcionar.</noscript>
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/sitio.js"></script>
 </body>
 </html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Marea</title>
+  <meta name="description" content="Planificá tus semanas de carga y descarga y registrá lo que levantás.">
+  <meta name="theme-color" content="#EDF1F2" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0D161B" media="(prefers-color-scheme: dark)">
+  <!-- Instalable en iPhone: Safari → Compartir → Agregar a inicio -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Marea">
+  <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+  <link rel="icon" href="../icons/icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="../manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600&family=Onest:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="../css/app.css">
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="logo">
+        <svg viewBox="0 0 34 20" aria-hidden="true"><path d="M1 13c4 0 4-8 8-8s4 8 8 8 4-8 8-8 4 8 8 8" fill="none" stroke="var(--load)" stroke-width="2.4" stroke-linecap="round"/><path d="M1 18c4 0 4-4 8-4s4 4 8 4 4-4 8-4 4 4 8 4" fill="none" stroke="var(--deload)" stroke-width="2.4" stroke-linecap="round"/></svg>
+        marea
+      </div>
+      <nav class="tabs" id="tabs" aria-label="Secciones" hidden></nav>
+      <span class="save-state" id="saveState" role="status">Cargando…</span>
+    </header>
+    <main id="main" class="stack"></main>
+    <footer class="foot" id="foot" hidden><button class="btn ghost small" data-act="reset">Empezar de cero</button><a class="btn ghost small" href="/privacidad">Privacidad</a></footer>
+  </div>
+  <div id="modalRoot"></div>
+  <noscript>Marea necesita JavaScript para funcionar.</noscript>
+  <script type="module" src="../js/app.js"></script>
+</body>
+</html>

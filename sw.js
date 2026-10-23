@@ -1,10 +1,10 @@
 // Service worker: guarda la app para que abra sin conexión.
 // Red primero (así siempre ves la última versión) y, si no hay internet, lo guardado.
 // Al publicar cambios, subí el número de versión para limpiar lo viejo.
-const CACHE = 'marea-v2';
+const CACHE = 'marea-v3';
 const ARCHIVOS = [
-  './', './index.html', './css/app.css', './manifest.webmanifest',
-  './js/app.js', './js/motor.js', './js/ejercicios.js', './js/mascotas.js', './js/util.js',
+  './', './index.html', './app/', './app/index.html', './privacidad', './css/app.css', './css/sitio.css', './manifest.webmanifest',
+  './js/app.js', './js/motor.js', './js/ejercicios.js', './js/mascotas.js', './js/util.js', './js/sitio.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'
 ];
 
@@ -26,6 +26,6 @@ self.addEventListener('fetch', e => {
       const copia = r.clone();
       caches.open(CACHE).then(c => c.put(e.request, copia));
       return r;
-    }).catch(() => caches.match(e.request).then(r => r || (e.request.mode === 'navigate' ? caches.match('./index.html') : undefined)))
+    }).catch(() => caches.match(e.request).then(r => r || (e.request.mode === 'navigate' ? caches.match(url.pathname.startsWith('/app') ? './app/' : './') : undefined)))
   );
 });

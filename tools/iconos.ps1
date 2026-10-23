@@ -1,4 +1,4 @@
-# Genera los íconos PNG de la app (Kilo sobre las olas) a partir de un dibujo simple.
+﻿# Genera los íconos PNG de la app (Kilo sobre las olas) a partir de un dibujo simple.
 # Uso: powershell -ExecutionPolicy Bypass -File tools\iconos.ps1
 Add-Type -AssemblyName System.Drawing
 $dest = Join-Path $PSScriptRoot '..\icons'

@@ -44,8 +44,12 @@ Todo se guarda en el dispositivo (no hay cuentas todavía). Desde la pestaña **
 
 | Archivo | Qué hace |
 |---|---|
-| `index.html` | La página y los permisos para instalarla |
+| `index.html` | Página de presentación (lo que ve quien recibe el link) |
+| `app/index.html` | La app; desde acá se instala en el teléfono |
+| `privacidad.html` | Política de privacidad (se abre en `/privacidad`) |
+| `og.png` | Imagen que aparece al compartir el link (se genera con `tools/og.ps1`) |
 | `css/app.css` | Colores, tipografías y animaciones |
+| `css/sitio.css`, `js/sitio.js` | Estilos y animaciones de la presentación |
 | `js/ejercicios.js` | Base de ejercicios: grupos, cómo se registra cada uno y cuáles se calculan con tu 1RM |
 | `js/motor.js` | El algoritmo: fases, carga y descarga, proyecciones, comparación con lo planeado |
 | `js/mascotas.js` | Kilo, Disco y la escena de mareas |

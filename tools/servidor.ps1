@@ -1,4 +1,4 @@
-# Servidor local para probar Marea en la compu (sin instalar nada).
+﻿# Servidor local para probar Marea en la compu (sin instalar nada).
 # Uso: powershell -ExecutionPolicy Bypass -File tools\servidor.ps1   y abrí http://localhost:8765
 param([int]$Puerto = 8765)
 if ($env:PORT) { $Puerto = [int]$env:PORT }
@@ -11,7 +11,12 @@ Write-Output "Marea en http://localhost:$Puerto (Ctrl+C para cortar)"
 while ($l.IsListening) {
   $ctx = $l.GetContext()
   $ruta = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath.TrimStart('/'))
-  if ($ruta -eq '') { $ruta = 'index.html' }
+  # Igual que en Vercel: carpeta → su index.html, y /privacidad → privacidad.html
+  if ($ruta -eq '' -or $ruta.EndsWith('/')) { $ruta += 'index.html' }
+  elseif (-not [IO.Path]::HasExtension($ruta)) {
+    if (Test-Path (Join-Path $raiz "$ruta.html")) { $ruta += '.html' }
+    elseif (Test-Path (Join-Path $raiz $ruta) -PathType Container) { $ruta += '/index.html' }
+  }
   $archivo = [IO.Path]::GetFullPath((Join-Path $raiz $ruta))
   if ($archivo.StartsWith($raiz) -and (Test-Path $archivo -PathType Leaf)) {
     $bytes = [IO.File]::ReadAllBytes($archivo)
