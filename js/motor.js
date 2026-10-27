@@ -183,6 +183,14 @@ export function mejorSerie(en, peso) {
   const d = ejDe(en.e);
   return en.s.filter(x => x.reps > 0).reduce((b, x) => { const v = e1(total(d, x.kg, peso), x.reps); return !b || v > b.v ? { ...x, v } : b; }, null);
 }
+// Si anotaste tu RPE real, se tienen en cuenta las repeticiones que te quedaban en el tanque:
+// mismos kilos con RPE más alto que el objetivo = estás menos fuerte de lo que dice el plan (y al revés).
+// Sin RPE anotado se asume que fue el objetivo de la semana (factor 1).
+function factorRPE(t, o, en, w) {
+  if (!en.rpe || !o.reps) return 1;
+  const rirHecho = Math.max(0, 10 - en.rpe), rirPlan = Math.max(0, 10 - w.rpe);
+  return ((1 + (t.reps + rirHecho) / 30) / (1 + t.reps / 30)) / ((1 + (o.reps + rirPlan) / 30) / (1 + o.reps / 30));
+}
 // 1RM que implica lo registrado según el mismo modelo del plan: hacer justo lo planeado = tu 1RM actual.
 // Así una serie submáxima a RPE 7 no aparece como "bajaste". Las descargas no cuentan.
 export function rmImplicito(plan, wi, en) {
@@ -194,8 +202,9 @@ export function rmImplicito(plan, wi, en) {
   else {
     const o = objetivoEj(plan, w, en.e); if (!o.pct) return 0;
     // Con 1RM conocido se compara contra los kilos sugeridos ya redondeados: hacer lo planeado = mismo 1RM, sin falsos -1%
-    if (o.conRM) tot = total(d, plan.p.rm[en.e], P) * t.v / e1(total(d, o.kg, P), o.reps);
-    else tot = t.v / (o.pct * (1 + o.reps / 30));
+    const f = factorRPE(t, o, en, w);
+    if (o.conRM) tot = total(d, plan.p.rm[en.e], P) * t.v / e1(total(d, o.kg, P), o.reps) * f;
+    else tot = t.v / (o.pct * (1 + o.reps / 30)) * f;
   }
   return d.t === 'lastre' ? tot - P : tot;
 }
@@ -207,7 +216,7 @@ export function rendimientoSemana(plan, cy, wi) {
     let ratio = null;
     if (w.tipo === 'carga' && (d.t === 'carga' || d.t === 'lastre')) {
       const o = objetivoEj(plan, w, en.e), t = mejorSerie(en, P);
-      if (o.conRM && t) ratio = t.v / e1(total(d, o.kg, P), o.reps);
+      if (o.conRM && t) ratio = t.v / e1(total(d, o.kg, P), o.reps) * factorRPE(t, o, en, w);
     }
     out.push({ sid, id, en, ratio });
   }
@@ -249,6 +258,38 @@ export function puntosSalto(cy, k) {
   recorrer(cy, (wi, lg, j, n) => { let best = 0; for (const id in lg.ej) { const en = lg.ej[id]; if (en.e === k) en.s.forEach(x => { if (x.marca > best) best = x.marca; }); } if (best > 0) pts.push({ x: wi + (j + .5) / n, v: best }); });
   (cy.saltos || []).filter(x => x.k === k).forEach(x => pts.push({ x: x.wi + .5, v: x.v }));
   return pts.sort((a, b) => a.x - b.x);
+}
+// Proyección que aprende de lo que llevás: compara tu 1RM estimado de las últimas 2 semanas con datos
+// contra tu 1RM actual y corrige la proyección en esa proporción. Hacer justo lo planeado no la cambia;
+// venir 10% abajo varias semanas la baja ~10%; venir arriba la sube. Pesa más cuantas más semanas haya (completo desde 3).
+export function proyeccionAjustada(plan, cy, k) {
+  const pr = proyeccion(plan, k); if (!pr) return pr;
+  const pts = SALTOS.includes(k) ? puntosSalto(cy, k) : puntosLift(plan, cy, k);
+  const semanas = [...new Set(pts.map(p => Math.floor(p.x)))].sort((a, b) => a - b);
+  if (!semanas.length) return pr;
+  const ultimas = new Set(semanas.slice(-2)), rec = pts.filter(p => ultimas.has(Math.floor(p.x)));
+  const actual = rec.reduce((a, p) => a + p.v, 0) / rec.length;
+  // Dominadas: la proporción se mide sobre peso corporal + lastre, que es lo que de verdad levantás
+  const P = k === 'dominadas' ? plan.p.peso || 0 : 0, factor = (actual + P) / (pr.now + P), peso = Math.min(1, semanas.length / 3);
+  const f = Math.min(1.25, Math.max(.8, 1 + (factor - 1) * peso));
+  if (Math.abs(f - 1) < .005) return pr;
+  const proj = (pr.proj + P) * f - P;
+  return { ...pr, proj, rate: proj / pr.now - 1, ajustada: true };
+}
+// Si en tus últimas 2 o 3 semanas de carga quedaste por debajo en un básico, te ofrezco bajar ese 1RM
+// para que las cargas vuelvan a ser alcanzables (el espejo de "subió tu 1RM")
+export function ajustesBaja(plan, cy, c) {
+  const semanas = []; for (let i = Math.min(c, plan.weeks.length - 1); i >= 0 && semanas.length < 3; i--) if (plan.weeks[i].tipo === 'carga') semanas.push(i);
+  const por = {};
+  semanas.forEach(wi => rendimientoSemana(plan, cy, wi).forEach(r => {
+    if (r.ratio == null || !MARCAS.includes(r.en.e)) return;
+    ((por[r.en.e] = por[r.en.e] || {})[wi] = por[r.en.e][wi] || []).push({ ratio: r.ratio, v: rmImplicito(plan, wi, r.en) });
+  }));
+  return Object.entries(por).map(([k, ws]) => {
+    const sem = Object.values(ws); if (sem.length < 2 || !sem.every(s => Math.max(...s.map(x => x.ratio)) < .95)) return null;
+    const todas = sem.flat(), v = r25(todas.reduce((a, x) => a + x.v, 0) / todas.length);
+    return v > 0 && v <= plan.p.rm[k] - 2.5 ? { k, v } : null;
+  }).filter(Boolean);
 }
 // Valor comparable de una entrada: 1RM estimado (pesos), mejor marca (saltos/lanzamientos) o segundos
 function valor(en, peso) {

@@ -284,3 +284,13 @@ textarea{min-height:240px;font-family:var(--f-mono);font-size:12px}
 .plan-sel{display:grid;gap:4px;margin-top:12px;padding:14px;border-radius:14px;background:var(--sunk)}
 .plan-sel .week-goal{border-top:0;padding-top:0}
 svg .sel{fill:none;stroke:var(--accent);stroke-width:2}
+
+/* Registro: herramientas por ejercicio (cambiar por hoy, no lo hice, RPE, esfuerzo) y borrar series */
+.ex-tools{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.ex-foot{gap:8px 18px}
+.mini-f{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.in.in-sm{width:auto;max-width:min(240px,60vw);padding:5px 8px}
+.ex.skip .sets,.ex.skip .ex-foot{opacity:.35;pointer-events:none}
+.set{grid-template-columns:22px 92px auto 76px auto 36px}
+.del-set{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;width:36px;height:36px;border-radius:50%;padding:0}
+.del-set:hover{background:var(--sunk);color:var(--ink)}

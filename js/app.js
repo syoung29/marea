@@ -1,9 +1,9 @@
 // Marea: interfaz. Estado, pantallas, primeros pasos, modales y eventos.
 import { $, $$, esc, r25, clone, iso, parse, lunes, addD, fd, fmt, nid } from './util.js';
-import { GRUPOS, TIPOS, MARCAS, SALTOS, EXTRA_GRUPO, ejDe, todos, registrarPropios } from './ejercicios.js';
+import { GRUPOS, TIPOS, MARCAS, SALTOS, EXTRA_GRUPO, ejDe, todos, registrarPropios, alternativas } from './ejercicios.js';
 import {
   ENFOQUES, NIVEL, generar, elegirComp, proyeccion, veredicto, objetivoEj, rpeTxt, rendimientoSemana, veredictoSemana,
-  sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie
+  sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie, proyeccionAjustada, ajustesBaja
 } from './motor.js';
 import { kilo, escena, act, decir, conectarKilo, iniciarMascotas, rodarEscena, vueltaDisco, REDUCE } from './mascotas.js';
 
@@ -23,7 +23,9 @@ const AYUDA = {
   fase: ['Fases', 'El ciclo se divide en fases con objetivos distintos. Acumulación: mucho trabajo con pesos moderados. Fuerza: menos repeticiones y más kilos. Potencia: velocidad y saltos intensos. Realización o test: poco volumen para llegar fresco y medir.'],
   bloque: ['Bloque', 'Un paquete de semanas de carga seguido de una semana de descarga. El ciclo encadena varios bloques.'],
   proyeccion: ['Proyección', 'Lo que estimo que vas a levantar al cierre del ciclo si seguís el plan. Avanza más lento cuanto más cerca estás de tu techo. Después del primer ciclo, se ajusta con tus datos reales.'],
-  trabajo: ['Trabajo semanal', 'Cuánto entrenás en la semana: series por repeticiones. Las barras altas son semanas con mucho trabajo; las bajas, descargas.']
+  trabajo: ['Trabajo semanal', 'Cuánto entrenás en la semana: series por repeticiones. Las barras altas son semanas con mucho trabajo; las bajas, descargas.'],
+  esfuerzo: ['Esfuerzo en saltos', 'Si no podés medir la altura o la distancia, anotá cómo salieron: suave (técnica, sin buscar altura), fuerte (casi a tope) o máximo (cada salto a todo). Así controlás que la intensidad sea la de la semana: en las de intensidad baja, la mayoría debería ser suave.'],
+  medir: ['Medir saltos sin equipos', 'Salto vertical: parado al lado de una pared, marcá con tiza o cinta lo más alto que llegás con el brazo estirado; después saltá y tocá la pared lo más alto que puedas. La diferencia es tu salto. Salto al cajón: anotá la altura del cajón más alto que pasás bien. Salto en largo: medí con una cinta o contá baldosas (suelen medir 30, 40 o 60 cm). También hay apps que calculan la altura con un video en cámara lenta.']
 };
 const ay = t => `<button class="q" type="button" data-act="ayuda" data-t="${t}" aria-label="¿Qué significa ${esc(AYUDA[t][0])}?">?</button>`;
 
@@ -62,12 +64,12 @@ function rutinaBase(p, objetivos = []) {
 
 /* ================= ESTADO Y GUARDADO ================= */
 let state = null, saludado = false;
-const ui = { view: 'onb', tab: 'semana', wk: null, planSel: null, open: null, paso: 0, draft: null, descartados: new Set(), celebrar: null, justCreated: false };
+const ui = { view: 'onb', tab: 'semana', wk: null, planSel: null, open: null, paso: 0, draft: null, descartados: new Set(), swaps: {}, celebrar: null, justCreated: false };
 
 const nuevoCiclo = (p, objetivos, inicio) => ({ id: nid('c'), inicio: iso(inicio), comp: elegirComp(p, inicio), snap: clone({ perfil: p, objetivos }), overrides: {}, logs: {}, saltos: [], inicioRM: { ...p.rm, ...p.salto }, cierre: null });
 const inicioDe = cuando => { const b = lunes(new Date()); return cuando === 'este' ? b : addD(b, 7); };
 function crearPlan(p, objetivos, cuando) {
-  state = { v: 3, ejemplo: false, perfil: p, objetivos, rutina: rutinaBase(p, objetivos), rutinaModo: 'auto', propios: [], ciclos: [nuevoCiclo(p, objetivos, inicioDe(cuando))] };
+  state = { v: 3, ejemplo: false, perfil: p, objetivos, rutina: rutinaBase(p, objetivos), rutinaModo: 'auto', propios: [], recordatorio: { dias: [], hora: '18:00' }, ciclos: [nuevoCiclo(p, objetivos, inicioDe(cuando))] };
 }
 function ejemplo() {
   const perfil = { nombre: '', edad: 24, sexo: 'm', peso: 78, altura: 178, experiencia: 1.5, enfoque: 'potencia', dias: 4, recuperacion: 3, duracion: 20, carga: 0,
@@ -93,10 +95,11 @@ function ejemplo() {
       cy.logs[wi][s.id] = { fecha: iso(addD(ini, wi * 7 + j * 2)), ej };
     });
   }
-  return { v: 3, ejemplo: true, perfil, objetivos, rutina, rutinaModo: 'auto', propios: [], ciclos: [cy] };
+  return { v: 3, ejemplo: true, perfil, objetivos, rutina, rutinaModo: 'auto', propios: [], recordatorio: { dias: [], hora: '18:00' }, ciclos: [cy] };
 }
 function migrar(s) {
   s.perfil.nose = s.perfil.nose || {}; s.propios = s.propios || []; s.rutinaModo = s.rutinaModo || 'auto';
+  s.recordatorio = s.recordatorio || { dias: [], hora: '18:00' }; s.recordatorio = s.recordatorio || { dias: [], hora: '18:00' };
   s.objetivos = (s.objetivos || []).map(o => o.tipo ? o : { tipo: 'ej', clave: o.clave, objetivo: o.objetivo });
   if (!s.rutina) s.rutina = rutinaBase(s.perfil, s.objetivos);
   s.ciclos.forEach(cy => { cy.logs = cy.logs || {}; cy.saltos = cy.saltos || []; cy.inicioRM = cy.inicioRM || { ...cy.snap.perfil.rm, ...cy.snap.perfil.salto }; });
@@ -156,6 +159,7 @@ function renderSemana(plan, cy, raw, c) {
   const sub = raw < 0 ? `Arrancás el ${fd(ini)}. Ya podés mirar la semana 1.` : raw >= N ? 'Terminaste el ciclo. Cerralo en Plan para arrancar el próximo.' : `Semana ${c + 1} de ${N} · ${tipoTxt(plan, wc)} · ${plan.fases[wc.fase].n}`;
   const ver = veredictoSemana(plan, cy, wi), sug = sugerirDescarga(plan, cy, wi) && !(cy.overrides || {})[wi + 1];
   const recs = records(plan, cy).filter(r => !ui.descartados.has(r.k + r.v));
+  const bajas = state.ejemplo ? [] : ajustesBaja(plan, cy, c).filter(r => !ui.descartados.has('b' + r.k + r.v));
   const logs = (cy.logs || {})[wi] || {}, hechos = state.rutina.filter(s => logs[s.id]).length;
   const futura = wi > c || raw < 0, ov = (cy.overrides || {})[wi];
   let goal;
@@ -167,6 +171,7 @@ function renderSemana(plan, cy, raw, c) {
   ${escena({ label: 'Tu semana', eyebrow: `Ciclo ${state.ciclos.length} · ${esc(ENFOQUES[plan.p.enfoque])}`, titulo: `${h < 12 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches'}${nom ? ', ' + esc(nom) : ''}`, sub, tipo: wc.tipo })}
   ${haciaDonde(plan, cy)}
   ${recs.length ? `<div class="banner rec"><span>Con lo que cargaste, subió tu 1RM estimado: ${recs.map(r => `<b>${esc(corto(r.k))}</b> <span class="num">${plan.p.rm[r.k] > 0 ? fmt(plan.p.rm[r.k], 'kg') + ' → ' : ''}${fmt(r.v, 'kg')}</span>`).join(' · ')}. ¿Lo actualizo? Las cargas sugeridas se recalculan.</span><span class="row"><button class="btn small ghost" data-act="descartar" data-id="${recs.map(r => r.k + r.v).join(',')}">Ahora no</button><button class="btn small primary" data-act="usarRM" data-rs="${recs.map(r => r.k + ':' + r.v).join(',')}">Actualizar</button></span></div>` : ''}
+  ${bajas.length ? `<div class="banner warn"><span>En tus últimas semanas de carga quedaste por debajo de lo planeado en ${bajas.map(r => `<b>${esc(corto(r.k))}</b> <span class="num">${fmt(plan.p.rm[r.k], 'kg')} → ${fmt(r.v, 'kg')}</span>`).join(' · ')}. ¿Ajusto tu 1RM? Las cargas quedan alcanzables y la proyección se recalcula.</span><span class="row"><button class="btn small ghost" data-act="descartar" data-id="${bajas.map(r => 'b' + r.k + r.v).join(',')}">Ahora no</button><button class="btn small primary" data-act="usarRM" data-rs="${bajas.map(r => r.k + ':' + r.v).join(',')}">Ajustar</button></span></div>` : ''}
   ${sug ? `<div class="banner warn"><span>Esta semana quedaste por debajo de lo planeado. Conviene <b>adelantar la descarga a la semana ${wi + 2}</b>.</span><button class="btn small" data-act="adelantar" data-i="${wi + 1}">Adelantar descarga</button></div>` : ''}
   <section class="card" aria-label="Semana seleccionada">
     <div class="week-head">
@@ -193,14 +198,14 @@ function haciaDonde(plan, cy) {
   const keys = [...new Set([...metas, ...MARCAS.filter(k => plan.p.rm[k] > 0 || plan.p.nose[k]), ...SALTOS.filter(k => plan.p.salto[k] > 0 || plan.p.nose[k])])];
   const fin = addD(parse(cy.inicio), plan.weeks.length * 7 - 1);
   const items = keys.map(k => {
-    const isJ = SALTOS.includes(k), unit = isJ ? 'cm' : 'kg', pr = proyeccion(plan, k), goal = (ejObj.find(o => o.clave === k) || {}).objetivo || 0;
+    const isJ = SALTOS.includes(k), unit = isJ ? 'cm' : 'kg', pr = proyeccionAjustada(plan, cy, k), goal = (ejObj.find(o => o.clave === k) || {}).objetivo || 0;
     const start = (cy.inicioRM || {})[k] || 0, pts = isJ ? puntosSalto(cy, k) : puntosLift(plan, cy, k), now = pts.length ? Math.max(...pts.map(p => p.v)) : start;
     if (!pr && !pts.length) return `<div class="dest"><b>${esc(corto(k))}</b><span class="note">Lo calculo con tus primeros entrenamientos</span></div>`;
     const proj = pr ? pr.proj : now, meta = Math.max(goal, proj), fill = meta > start && start > 0 ? Math.max(0, Math.min(1, (now - start) / (meta - start))) : 0;
     const red = v => unit === 'kg' ? r25(v) : Math.round(v);
     return `<div class="dest"><div class="dest-top"><b>${esc(corto(k))}</b><span class="num">${fmt(red(now), '')} → <b>${fmt(red(goal || proj), unit)}</b></span></div>
       <div class="track"><div class="fill" style="width:${fill * 100}%"></div></div>
-      <span class="note">${goal ? `Objetivo · proyección ${fmt(red(proj), unit)}` : 'Proyección al cierre'}</span></div>`;
+      <span class="note">${goal ? `Objetivo · proyección ${fmt(red(proj), unit)}` : 'Proyección al cierre'}${pr && pr.ajustada ? ' · con lo que llevás' : ''}</span></div>`;
   }).join('');
   const chips = grupos.map(o => { const pm = promedioGrupo(plan, cy, o.grupo); return `<span class="chip">${esc(GRUPOS[o.grupo])} · <b>${pm == null ? 'sin datos aún' : (pm >= 0 ? '+' : '') + pm.toFixed(1) + '%'}</b></span>`; }).join('');
   if (!items && !chips) return '';
@@ -215,13 +220,43 @@ function mejorTxt(en, peso) {
   if (d.t === 'tiempo') return `${Math.max(...en.s.map(x => x.seg))} s`;
   const t = mejorSerie(en, peso); return t ? serieTxt(d, t) : '';
 }
+const ESF = { suave: 'Suave', fuerte: 'Fuerte', maximo: 'Máximo' };
 function setRow(d, sid, iid, i, x, o, prevKg) {
   const id = `${sid}-${iid}-${i}`;
   const inp = (f, val, ph, lbl, step, mode) => `<input class="in" id="${f}-${id}" type="number" inputmode="${mode}" step="${step}" min="0" data-f="${f}" value="${val ?? ''}" placeholder="${ph ?? ''}" aria-label="${lbl}, serie ${i + 1}">`;
-  if (d.t === 'salto' || d.t === 'lanzamiento') return `<div class="set"><span class="set-i">${i + 1}</span>${inp('reps', x ? x.reps : '', o.reps, 'Repeticiones', 1, 'numeric')}<span>reps</span>${d.marca ? inp('marca', x && x.marca ? x.marca : '', '', `Marca en ${d.marca}`, .5, 'decimal') + `<span>${d.marca}</span>` : ''}</div>`;
-  if (d.t === 'tiempo') return `<div class="set"><span class="set-i">${i + 1}</span>${inp('seg', x ? x.seg : '', o.seg || 30, 'Segundos', 5, 'numeric')}<span>seg</span></div>`;
+  const del = `<button type="button" class="del-set" data-act="delSet" aria-label="Borrar serie ${i + 1}">×</button>`;
+  if (d.t === 'salto' || d.t === 'lanzamiento') return `<div class="set"><span class="set-i">${i + 1}</span>${inp('reps', x ? x.reps : '', o.reps, 'Repeticiones', 1, 'numeric')}<span>reps</span>${d.marca ? inp('marca', x && x.marca ? x.marca : '', '', `Marca en ${d.marca} (opcional)`, .5, 'decimal') + `<span>${d.marca}</span>` : ''}${del}</div>`;
+  if (d.t === 'tiempo') return `<div class="set"><span class="set-i">${i + 1}</span>${inp('seg', x ? x.seg : '', o.seg || 30, 'Segundos', 5, 'numeric')}<span>seg</span>${del}</div>`;
   const ph = o.conRM ? o.kg : prevKg != null ? prevKg : d.t === 'lastre' ? 0 : 'kg';
-  return `<div class="set"><span class="set-i">${i + 1}</span>${inp('kg', x && x.kg != null ? x.kg : '', ph, d.t === 'lastre' ? 'Kilos de lastre' : 'Kilos', .5, 'decimal')}<span>${d.t === 'lastre' ? 'kg lastre ×' : 'kg ×'}</span>${inp('reps', x && x.reps ? x.reps : '', o.reps, 'Repeticiones', 1, 'numeric')}<span>reps</span></div>`;
+  return `<div class="set"><span class="set-i">${i + 1}</span>${inp('kg', x && x.kg != null ? x.kg : '', ph, d.t === 'lastre' ? 'Kilos de lastre' : 'Kilos', .5, 'decimal')}<span>${d.t === 'lastre' ? 'kg lastre ×' : 'kg ×'}</span>${inp('reps', x && x.reps ? x.reps : '', o.reps, 'Repeticiones', 1, 'numeric')}<span>reps</span>${del}</div>`;
+}
+// Un ejercicio dentro del entrenamiento. Se puede cambiar solo por hoy (sin tocar la rutina) o marcar como no hecho.
+const claveSwap = (wi, sid, iid) => `${wi}:${sid}:${iid}`;
+function exBlock(plan, cy, wi, s, it, lg, nP) {
+  const w = plan.weeks[wi], P = plan.p.peso || 0, guardado = lg && lg.ej[it.id];
+  const e = ui.swaps[claveSwap(wi, s.id, it.id)] || (guardado ? guardado.e : it.e), d = ejDe(e), mismo = guardado && guardado.e === e;
+  const o = objetivoEj(plan, w, e, nP), prev = ultimaEntrada(cy, e, wi), cur = mismo ? guardado.s : [];
+  const prevKg = prev && (d.t === 'carga' || d.t === 'lastre') ? (mejorSerie(prev, P) || {}).kg : null, n = Math.max(cur.length, o.sets || 3);
+  const skip = !!(guardado && guardado.skip), alt = alternativas(it.e), plio = d.t === 'salto' || d.t === 'lanzamiento';
+  const opt = x => `<option value="${x.id}" ${x.id === e ? 'selected' : ''}>${esc(x.n)}</option>`;
+  return `<div class="ex ${skip ? 'skip' : ''}" data-i="${it.id}" data-e="${e}">
+    <div class="ex-head"><b>${esc(d.n)}${e !== it.e ? ` <span class="tag t-mid">en lugar de ${esc(corto(it.e))}</span>` : ''}</b><span class="note">${o.texto}</span></div>
+    ${prev ? `<span class="note">La última vez: ${mejorTxt(prev, P)}</span>` : ''}
+    <div class="ex-tools">
+      <label class="chk"><input type="checkbox" data-skip ${skip ? 'checked' : ''}>No lo hice hoy</label>
+      ${alt.estilo.length || alt.grupo.length ? `<label class="mini-f">Cambiar solo por hoy
+        <select class="in in-sm" data-swap aria-label="Cambiar ${esc(d.n)} solo por hoy">
+          <option value="${it.e}" ${e === it.e ? 'selected' : ''}>${esc(ejDe(it.e).n)} (tu rutina)</option>
+          ${alt.estilo.length ? `<optgroup label="Del mismo estilo">${alt.estilo.map(opt).join('')}</optgroup>` : ''}
+          ${alt.grupo.length ? `<optgroup label="Del mismo grupo">${alt.grupo.map(opt).join('')}</optgroup>` : ''}
+        </select></label>` : ''}
+    </div>
+    <div class="sets">${Array.from({ length: n }, (_, k) => setRow(d, s.id, it.id, k, cur[k], o, prevKg)).join('')}</div>
+    <div class="row ex-foot"><button type="button" class="btn small ghost" data-act="addSet">+ Serie</button>
+      ${d.t === 'carga' || d.t === 'lastre' ? `<label class="mini-f">RPE promedio ${ay('rpe')}<select class="in in-sm" data-rpe aria-label="RPE promedio de ${esc(d.n)} (opcional)"><option value="">—</option>${[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map(v => `<option value="${v}" ${mismo && +guardado.rpe === v ? 'selected' : ''}>${v.toLocaleString('es')}</option>`).join('')}</select></label>` : ''}
+      ${plio ? `<label class="mini-f">Esfuerzo ${ay('esfuerzo')}<select class="in in-sm" data-esf aria-label="Esfuerzo en ${esc(d.n)} (opcional)"><option value="">—</option>${Object.entries(ESF).map(([k, t]) => `<option value="${k}" ${mismo && guardado.esf === k ? 'selected' : ''}>${t}</option>`).join('')}</select></label>` : ''}
+      ${d.t === 'salto' && d.marca ? `<span class="mini-f">¿Sin cinta para medir? ${ay('medir')}</span>` : ''}
+    </div></div>`;
 }
 function sesion(plan, cy, wi, s, i) {
   const w = plan.weeks[wi], lg = ((cy.logs || {})[wi] || {})[s.id], open = ui.open === s.id, done = !!lg, P = plan.p.peso || 0;
@@ -234,22 +269,18 @@ function sesion(plan, cy, wi, s, i) {
     if (!done) return `<article class="ses">${head}</article>`;
     const rend = rendimientoSemana(plan, cy, wi).filter(r => r.sid === s.id);
     return `<article class="ses done">${head}<div class="ses-body">${Object.keys(lg.ej).map(id => {
-      const en = lg.ej[id], d = ejDe(en.e), r = rend.find(x => x.id === id);
+      const en = lg.ej[id], d = ejDe(en.e), r = rend.find(x => x.id === id), it = s.items.find(x => x.id === id);
+      const cambio = it && it.e !== en.e ? ` <span class="note">(en lugar de ${esc(corto(it.e))})</span>` : '';
+      if (en.skip) return `<div class="sum-row"><span>${esc(corto(en.e))}${cambio}</span><span class="note">No lo hiciste</span></div>`;
       const tag = r && r.ratio != null ? (r.ratio >= 1.005 ? `<span class="tag t-up">+${Math.round((r.ratio - 1) * 100) || 1}% vs plan</span>` : r.ratio >= .95 ? '<span class="tag t-mid">en el plan</span>' : `<span class="tag t-down">−${Math.round((1 - r.ratio) * 100)}% vs plan</span>`) : '';
-      return `<div class="sum-row"><span>${esc(corto(en.e))} ${tag}</span><span class="num">${en.s.map(x => serieTxt(d, x)).join('  ')}</span></div>`;
+      const extra = en.rpe ? ` · RPE ${(+en.rpe).toLocaleString('es')}` : en.esf ? ` · ${ESF[en.esf].toLowerCase()}` : '';
+      return `<div class="sum-row"><span>${esc(corto(en.e))}${cambio} ${tag}</span><span class="num">${en.s.map(x => serieTxt(d, x)).join('  ')}${extra}</span></div>`;
     }).join('')}</div></article>`;
   }
   return `<article class="ses ${done ? 'done' : ''}">${head}
     <form class="ses-body ses-form" data-s="${s.id}" data-w="${wi}" novalidate>
       ${w.plyo && nP ? `<p class="note" style="padding-top:12px">Saltos y lanzamientos primero, frescos: <b style="color:var(--ink)">${w.plyo.c} contactos</b> en total ${ay('contactos')}</p>` : ''}
-      ${s.items.map(it => {
-        const d = ejDe(it.e), o = objetivoEj(plan, w, it.e, nP), prev = ultimaEntrada(cy, it.e, wi), cur = lg && lg.ej[it.id] ? lg.ej[it.id].s : [];
-        const prevKg = prev && (d.t === 'carga' || d.t === 'lastre') ? (mejorSerie(prev, P) || {}).kg : null, n = Math.max(cur.length, o.sets || 3);
-        return `<div class="ex" data-i="${it.id}"><div class="ex-head"><b>${esc(d.n)}</b><span class="note">${o.texto}</span></div>
-          ${prev ? `<span class="note">La última vez: ${mejorTxt(prev, P)}</span>` : ''}
-          <div class="sets">${Array.from({ length: n }, (_, k) => setRow(d, s.id, it.id, k, cur[k], o, prevKg)).join('')}</div>
-          <div><button type="button" class="btn small ghost" data-act="addSet">+ Serie</button></div></div>`;
-      }).join('')}
+      ${s.items.map(it => exBlock(plan, cy, wi, s, it, lg, nP)).join('')}
       <p class="err" hidden></p>
       <div class="row"><button class="btn primary" type="submit">Guardar entrenamiento</button><button type="button" class="btn" data-act="rellenar">Completar con lo sugerido</button><button type="button" class="btn ghost" data-act="abrir" data-s="${s.id}">Cancelar</button></div>
     </form></article>`;
@@ -292,8 +323,8 @@ function renderProgreso(plan, cy) {
   const obj = plan.objetivos || [], goals = Object.fromEntries(obj.filter(o => o.tipo === 'ej').map(o => [o.clave, o.objetivo || 0]));
   const enLogs = new Set(); for (const wi in cy.logs) for (const sid in cy.logs[wi]) for (const id in cy.logs[wi][sid].ej) enLogs.add(cy.logs[wi][sid].ej[id].e);
   const tarjeta = (k, unit, pts, start, extra = '') => {
-    const pr = proyeccion(plan, k), best = pts.length ? Math.max(...pts.map(p => p.v)) : 0, goal = goals[k] || 0;
-    const projEnd = pr ? (k === 'dominadas' || !start ? pr.proj : start * (1 + pr.rate)) : 0, cambio = start > 0 && best > 0 ? (best / start - 1) * 100 : null;
+    const pr = proyeccionAjustada(plan, cy, k), best = pts.length ? Math.max(...pts.map(p => p.v)) : 0, goal = goals[k] || 0;
+    const projEnd = pr ? (pr.ajustada || k === 'dominadas' || !start ? pr.proj : start * (1 + pr.rate)) : 0, cambio = start > 0 && best > 0 ? (best / start - 1) * 100 : null;
     const avance = goal > 0 && start > 0 && best > 0 ? Math.max(0, Math.min(1, (best - start) / (goal - start))) : null;
     return `<section class="card"><div class="pcard-head"><h2>${esc(corto(k))}</h2>${goal ? `<span class="note">Objetivo ${fmt(goal, unit)}</span>` : ''}</div>
       <dl class="stats"><div><dt>Al empezar</dt><dd>${start > 0 ? fmt(start, unit) : '—'}</dd></div><div><dt>${unit === 'kg' ? 'Mejor 1RM estimado' : 'Mejor marca'}</dt><dd>${best ? fmt(Math.round(best * 2) / 2, unit) : '—'}</dd></div>
@@ -396,19 +427,47 @@ function renderPlan(plan, cy, raw, c) {
     ${plan.comp ? `<p class="note" style="margin-top:8px">Armado hacia atrás desde ${esc(plan.comp.nombre)}. ${esc(plan.aviso || '')}</p>` : ''}
   </section>
   <div class="cols">
-    <section class="card"><div class="eyebrow" style="margin-bottom:6px">Proyección al cierre ${ay('proyeccion')}</div>${objetivosHTML(plan)}</section>
+    <section class="card"><div class="eyebrow" style="margin-bottom:6px">Proyección al cierre ${ay('proyeccion')}</div>${objetivosHTML(plan, cy)}</section>
     <section class="card"><div class="eyebrow" style="margin-bottom:10px">Por qué este plan</div>${porque(plan)}</section>
   </div>
   ${state.ciclos.length > 1 ? `<section class="card"><div class="eyebrow" style="margin-bottom:10px">Ciclos anteriores</div>${historial()}</section>` : ''}
   ${state.ejemplo ? '' : `<section class="card"><div class="eyebrow">Tus datos</div><p class="note" style="margin:6px 0 12px">Todo se guarda en este dispositivo. Descargá un respaldo de vez en cuando, y siempre antes de cambiar de teléfono.</p>
-    <div class="row"><button class="btn" data-act="exportar">Descargar respaldo</button><label class="btn" for="importar">Restaurar un respaldo</label><input type="file" id="importar" accept="application/json,.json" hidden></div></section>`}`;
+    <div class="row"><button class="btn" data-act="exportar">Descargar respaldo</button><label class="btn" for="importar">Restaurar un respaldo</label><input type="file" id="importar" accept="application/json,.json" hidden></div></section>
+  <section class="card" aria-labelledby="rec-t"><div class="eyebrow">Recordatorios</div>
+    <h2 id="rec-t" style="margin:4px 0 6px">Que el teléfono te avise los días que entrenás</h2>
+    <p class="note" style="margin-bottom:12px">Elegí los días y la hora. Se agregan al calendario de tu teléfono hasta el final del ciclo, con aviso a esa hora.</p>
+    <div class="chips" role="group" aria-label="Días de entrenamiento">${DIAS.map(([k, n]) => `<label class="chip-sel"><input type="checkbox" name="diaRec" value="${k}" ${(state.recordatorio.dias || []).includes(k) ? 'checked' : ''}>${n}</label>`).join('')}</div>
+    <div class="row" style="margin-top:12px;align-items:end"><label class="f" style="width:130px">Hora<input type="time" id="recHora" value="${esc(state.recordatorio.hora || '18:00')}"></label><button class="btn primary" data-act="recordatorios">Agregar al calendario</button></div>
+    <p class="err" id="recErr" hidden></p>
+    <p class="note" style="margin-top:10px">Si después cambiás los días, borrá del calendario los eventos «Marea» y volvé a agregarlos.</p></section>`}`;
 }
-function objetivosHTML(plan) {
+const DIAS = [['MO', 'Lun'], ['TU', 'Mar'], ['WE', 'Mié'], ['TH', 'Jue'], ['FR', 'Vie'], ['SA', 'Sáb'], ['SU', 'Dom']];
+// Recordatorios: un evento semanal en el calendario del teléfono (archivo .ics), los días elegidos y hasta el final del ciclo
+function recordatorios() {
+  const dias = $$('input[name="diaRec"]:checked').map(c => c.value), hora = $('#recHora').value || '18:00', err = $('#recErr');
+  if (!dias.length) { err.textContent = 'Elegí al menos un día.'; err.hidden = false; return; }
+  err.hidden = true; state.recordatorio = { dias, hora }; persist();
+  const cy = activo(), plan = planDe(cy), ini = parse(cy.inicio), fin = addD(ini, plan.weeks.length * 7 - 1);
+  const num = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 }, pad = x => String(x).padStart(2, '0'), [h, m] = hora.split(':').map(Number);
+  let d0 = new Date(Math.max(lunes(new Date()), ini)); while (!dias.some(x => num[x] === d0.getDay())) d0 = addD(d0, 1);
+  const fecha = d => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`, ahora = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Marea//Recordatorios//ES', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT',
+    `UID:marea-${cy.id}-${Date.now()}@marea`, `DTSTAMP:${ahora}`, `DTSTART:${fecha(d0)}T${pad(h)}${pad(m)}00`, 'DURATION:PT1H',
+    `RRULE:FREQ=WEEKLY;BYDAY=${dias.join(',')};UNTIL=${fecha(fin)}T235959`,
+    'SUMMARY:Marea: hoy toca entrenar', `DESCRIPTION:Abrí Marea para ver qué toca y cargar tus series.`, `URL:${location.origin}/app/`,
+    'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Hoy toca entrenar', 'TRIGGER:PT0M', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  // En iPhone, abrir el archivo directo muestra «Agregar al calendario»; en el resto se descarga
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent)) { location.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics); return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' })); a.download = 'marea-recordatorios.ics';
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  decir('Listo. Abrí el archivo para agregarlo a tu calendario.');
+}
+function objetivosHTML(plan, cy) {
   const ejObj = (plan.objetivos || []).filter(o => o.tipo === 'ej' && (MARCAS.includes(o.clave) || SALTOS.includes(o.clave)));
   const list = [...ejObj, ...[...MARCAS.filter(k => plan.p.rm[k] > 0), ...SALTOS.filter(k => plan.p.salto[k] > 0)].filter(k => !ejObj.some(o => o.clave === k)).map(k => ({ clave: k }))];
   if (!list.length) return '<p class="note">Cuando cargues entrenamientos, aparecen tus proyecciones.</p>';
   return list.map(o => {
-    const pr = proyeccion(plan, o.clave);
+    const pr = proyeccionAjustada(plan, cy, o.clave);
     if (!pr) return `<div class="goal"><div class="goal-top"><b>${esc(corto(o.clave))}</b><span class="note">sin marca todavía</span></div></div>`;
     const proj = fmt(pr.unit === 'kg' ? r25(pr.proj) : Math.round(pr.proj), pr.unit);
     if (!o.objetivo) return `<div class="goal"><div class="goal-top"><b>${esc(corto(o.clave))}</b><span class="num">${fmt(pr.now, pr.unit)} → ${proj}</span></div></div>`;
@@ -714,12 +773,17 @@ document.addEventListener('click', e => {
   }
   if (a === 'addSet') {
     const ex = el.closest('.ex'), sets = ex.querySelector('.sets'), last = sets.lastElementChild, f = el.closest('.ses-form');
-    const s = state.rutina.find(x => x.id === f.dataset.s), it = s.items.find(x => x.id === ex.dataset.i), ph = n => last ? (last.querySelector(`[data-f="${n}"]`) || {}).placeholder : '';
-    const tmp = document.createElement('div'); tmp.innerHTML = setRow(ejDe(it.e), s.id, it.id, sets.children.length, null, { kg: ph('kg'), reps: ph('reps'), seg: ph('seg'), conRM: true }, null);
+    const ph = n => last ? (last.querySelector(`[data-f="${n}"]`) || {}).placeholder : '';
+    const tmp = document.createElement('div'); tmp.innerHTML = setRow(ejDe(ex.dataset.e), f.dataset.s, ex.dataset.i, sets.children.length, null, { kg: ph('kg'), reps: ph('reps'), seg: ph('seg'), conRM: true }, null);
     sets.appendChild(tmp.firstElementChild); return;
   }
+  if (a === 'delSet') {
+    const sets = el.closest('.sets'); el.closest('.set').remove();
+    [...sets.children].forEach((r, i) => { r.querySelector('.set-i').textContent = i + 1; });
+    return;
+  }
   if (a === 'rellenar') {
-    el.closest('.ses-form').querySelectorAll('.set').forEach(r => {
+    el.closest('.ses-form').querySelectorAll('.ex:not(.skip) .set').forEach(r => {
       const kg = r.querySelector('[data-f=kg]'); if (kg && !kg.value && !/^[\d.]+$/.test(kg.placeholder)) return;
       r.querySelectorAll('input').forEach(i => { if (i.dataset.f !== 'marca' && !i.value && /^[\d.]+$/.test(i.placeholder)) i.value = i.placeholder; });
     });
@@ -737,6 +801,7 @@ document.addEventListener('click', e => {
   if (a === 'coach') return modalCoach();
   if (a === 'nuevoEj') return modalNuevoEj();
   if (a === 'exportar') return exportar();
+  if (a === 'recordatorios') return recordatorios();
   if (a === 'copiar') {
     const ta = $('#coachTxt');
     Promise.resolve().then(() => navigator.clipboard.writeText(ta.value)).then(() => { $('#copyMsg').textContent = 'Copiado'; }, () => { ta.select(); $('#copyMsg').textContent = 'Seleccioné el texto: copialo a mano'; });
@@ -771,6 +836,16 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset && t.dataset.ns) { const inp = document.getElementById(t.dataset.ns); inp.disabled = t.checked; if (t.checked) inp.value = ''; }
   if (t.name === 'modoObj') { const w = $('#goalsWrap'); if (w) w.hidden = t.value !== 'esp'; }
+  if (t.hasAttribute && t.hasAttribute('data-skip')) t.closest('.ex').classList.toggle('skip', t.checked);
+  // Cambiar un ejercicio solo por hoy: se redibuja ese ejercicio con el nuevo, sin tocar la rutina ni lo ya escrito en los otros
+  if (t.hasAttribute && t.hasAttribute('data-swap')) {
+    const f = t.closest('.ses-form'), ex = t.closest('.ex'), cy = activo(), plan = planDe(cy), wi = +f.dataset.w;
+    const s = state.rutina.find(x => x.id === f.dataset.s), it = s.items.find(x => x.id === ex.dataset.i), k = claveSwap(wi, s.id, it.id);
+    if (t.value === it.e) ui.swaps[k] = it.e; else ui.swaps[k] = t.value;
+    const lg = ((cy.logs || {})[wi] || {})[s.id], tmp = document.createElement('div');
+    tmp.innerHTML = exBlock(plan, cy, wi, s, it, lg, s.items.filter(x => esPlio(x.e)).length);
+    ex.replaceWith(tmp.firstElementChild);
+  }
   if (t.closest && t.closest('#rutForm')) guardarRutina();
   if (t.id === 'importar' && t.files[0]) {
     const r = new FileReader();
@@ -801,12 +876,20 @@ document.addEventListener('submit', e => {
   }
   if (f.classList.contains('ses-form')) {
     const cy = activo(), wi = +f.dataset.w, sid = f.dataset.s, s = state.rutina.find(x => x.id === sid), ej = {}; let n = 0;
+    let salteados = 0;
     f.querySelectorAll('.ex').forEach(div => {
       const it = s.items.find(x => x.id === div.dataset.i); if (!it) return;
-      const sets = leerSets(div, ejDe(it.e)); if (sets.length) { ej[it.id] = { e: it.e, s: sets }; n += sets.length; }
+      const e = div.dataset.e;
+      if (div.querySelector('[data-skip]').checked) { ej[it.id] = { e, s: [], skip: true }; salteados++; return; }
+      const sets = leerSets(div, ejDe(e)); if (!sets.length) return;
+      const en = { e, s: sets }, rpe = div.querySelector('[data-rpe]'), esf = div.querySelector('[data-esf]');
+      if (rpe && rpe.value) en.rpe = +rpe.value;
+      if (esf && esf.value) en.esf = esf.value;
+      ej[it.id] = en; n += sets.length;
     });
-    if (!n) { const er = f.querySelector('.err'); er.textContent = 'Cargá al menos una serie (con kilos y repeticiones; para peso corporal, 0 kg).'; er.hidden = false; return; }
+    if (!n && !salteados) { const er = f.querySelector('.err'); er.textContent = 'Cargá al menos una serie (con kilos y repeticiones; para peso corporal, 0 kg) o marcá lo que no hiciste.'; er.hidden = false; return; }
     cy.logs[wi] = cy.logs[wi] || {}; cy.logs[wi][sid] = { fecha: iso(new Date()), ej };
+    Object.keys(ui.swaps).forEach(k => { if (k.startsWith(`${wi}:${sid}:`)) delete ui.swaps[k]; });
     ui.open = null; persist();
     const plan = planDe(cy), r = rendimientoSemana(plan, cy, wi).filter(x => x.sid === sid && x.ratio != null);
     let msg = '¡Entrenamiento guardado!';
