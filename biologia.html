@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Repaso Neuroendócrino</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap">
+<style>
+/* Layout: cuaderno de estudio. Una columna de lectura, pestañas fijas arriba, resaltador amarillo para lo que hay que escribir en la prueba. */
+:root{
+  --paper:#F7F9F6; --card:#FFFFFF; --ink:#132B29; --muted:#566B67; --line:#D5DFDA;
+  --accent:#0E6F66; --accent-soft:#E1F1EE; --mark:#FFE36B;
+  --exc:#C4520D; --exc-soft:#FCEBDD; --inh:#2A63C2; --inh-soft:#E3ECFB;
+  --good:#1D7F45; --good-soft:#DFF3E6; --bad:#B42318; --bad-soft:#FBE4E1;
+  --display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#0E1716; --card:#15211F; --ink:#E4EEEB; --muted:#9BB0AB; --line:#2A3B38;
+  --accent:#43C5B3; --accent-soft:#163430; --mark:#6E5C00;
+  --exc:#F28C4B; --exc-soft:#3A2414; --inh:#7EA8F2; --inh-soft:#17253F;
+  --good:#5BD08A; --good-soft:#123222; --bad:#F2877C; --bad-soft:#3A1915; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#0E1716; --card:#15211F; --ink:#E4EEEB; --muted:#9BB0AB; --line:#2A3B38;
+  --accent:#43C5B3; --accent-soft:#163430; --mark:#6E5C00;
+  --exc:#F28C4B; --exc-soft:#3A2414; --inh:#7EA8F2; --inh-soft:#17253F;
+  --good:#5BD08A; --good-soft:#123222; --bad:#F2877C; --bad-soft:#3A1915; color-scheme:dark}
+
+*{box-sizing:border-box}
+html{color-scheme:light}
+[hidden]{display:none!important}
+body{margin:0}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.6;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--paper)}
+.wrap{max-width:820px;margin:0 auto;padding-block:28px 80px}
+h1,h2,h3{font-family:var(--display);line-height:1.15;text-wrap:balance;margin:0}
+h1{font-size:clamp(2rem,6vw,2.9rem);font-weight:800;letter-spacing:-.02em}
+h2{font-size:1.6rem;font-weight:800;letter-spacing:-.01em}
+h3{font-size:1.2rem;font-weight:600}
+p{margin:0}
+.hl{background:linear-gradient(transparent 52%, var(--mark) 52%);padding:0 .1em}
+.eyebrow{font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.lede{color:var(--muted);max-width:62ch}
+header.top{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top, 0px);z-index:5;background:var(--paper);
+  display:flex;gap:6px;overflow-x:auto;padding-block:10px;border-bottom:1px solid var(--line);margin-bottom:26px;scrollbar-width:none}
+nav.tabs button{flex:0 0 auto;font:inherit;font-weight:700;font-size:.95rem;border:1px solid var(--line);background:var(--card);
+  color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer}
+nav.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+button:focus-visible,textarea:focus-visible,.piece:focus-visible,.slot:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+section.view{display:flex;flex-direction:column;gap:28px}
+.topic{display:flex;flex-direction:column;gap:12px;padding-bottom:28px;border-bottom:1px dashed var(--line)}
+.topic:last-child{border-bottom:0}
+.topic p,.topic li{max-width:66ch}
+.topic ul,.topic ol{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:4px}
+.num{font-family:var(--display);color:var(--accent);font-weight:800;margin-right:.35em}
+
+.write{background:var(--accent-soft);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.write .eyebrow{color:var(--accent)}
+.analogy{border-left:3px solid var(--mark);padding:4px 0 4px 14px;font-style:italic;color:var(--ink)}
+
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pair > div{border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.pair .exc{background:var(--exc-soft)} .pair .exc h3{color:var(--exc)}
+.pair .inh{background:var(--inh-soft)} .pair .inh h3{color:var(--inh)}
+@media (max-width:560px){.pair{grid-template-columns:1fr}}
+
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:.92rem}
+.flow span{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 9px;font-weight:700}
+.flow i{color:var(--muted);font-style:normal}
+.flow em{font-style:normal;color:var(--accent);font-weight:700}
+
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;min-width:480px;font-size:.95rem}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--display);font-weight:600;background:var(--card)}
+tr:last-child td{border-bottom:0}
+
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;overflow-x:auto}
+figure svg{display:block;width:100%;min-width:420px;height:auto}
+figcaption{font-size:.85rem;color:var(--muted);margin-top:6px}
+svg text{font-family:var(--body);fill:var(--ink)}
+
+/* práctica */
+.progress{display:flex;flex-direction:column;gap:6px}
+.bar{height:10px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar > div{height:100%;background:var(--good);width:0;transition:width .3s}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button{font:inherit;font-size:.88rem;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:5px 12px;border-radius:999px;cursor:pointer}
+.filters button[aria-pressed="true"]{border-color:var(--ink);font-weight:700}
+.q{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.q.done{border-color:var(--good)}
+.qhead{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tag{font-size:.74rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.tag.sim{background:var(--exc-soft);color:var(--exc)}
+.q .prompt{font-weight:700}
+textarea{font:inherit;font-size:1rem;width:100%;min-height:110px;resize:vertical;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--paper);color:var(--ink)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;font-size:.84rem;align-items:center}
+.chip{border:1px dashed var(--muted);color:var(--muted);border-radius:999px;padding:2px 10px}
+.chip.on{border-style:solid;border-color:var(--good);background:var(--good-soft);color:var(--good);font-weight:700}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.btn{font:inherit;font-weight:700;font-size:.92rem;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:7px 14px;border-radius:8px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+.btn.ok[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:var(--paper)}
+.answer{border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.answer ol,.answer ul{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:4px}
+.hint{font-size:.95rem;color:var(--muted)}
+
+/* esquema */
+.scenarios{display:flex;gap:6px;flex-wrap:wrap}
+.board{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:640px){.board{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:8px;min-width:0}
+.slot{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;border:1px dashed var(--muted);border-radius:8px;padding:8px 10px;min-height:46px;background:var(--card);cursor:pointer;font-size:.95rem}
+.slot b{font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);width:7.5em}
+.slot.filled{border-style:solid}
+.slot.right{border-color:var(--good);background:var(--good-soft)}
+.slot.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.piece{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:9px 12px;text-align:left;font:inherit;font-size:.95rem;color:var(--ink);cursor:pointer}
+.piece:hover{border-color:var(--accent)}
+.msg{font-weight:700}
+
+/* flashcards */
+.cardstage{display:flex;flex-direction:column;gap:14px;align-items:stretch}
+.flash{min-height:230px;border-radius:14px;border:1px solid var(--line);background:var(--card);display:flex;flex-direction:column;justify-content:center;
+  align-items:center;text-align:center;padding:24px;cursor:pointer;gap:10px;font:inherit;color:var(--ink);width:100%}
+.flash .term{font-family:var(--display);font-size:1.9rem;font-weight:800}
+.flash .def{font-size:1.08rem;max-width:52ch}
+.flash.back{background:var(--accent-soft)}
+.cardnav{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.counter{font-variant-numeric:tabular-nums;color:var(--muted)}
+
+/* quiz */
+.mc{display:flex;flex-direction:column;gap:8px}
+.opt{text-align:left;font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:10px 12px;cursor:pointer}
+.opt.right{border-color:var(--good);background:var(--good-soft)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.opt:disabled{cursor:default}
+.explain{font-size:.95rem;color:var(--muted)}
+.score{font-family:var(--display);font-size:1.4rem;font-weight:800}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="top">
+  <span class="eyebrow">Biología · Sistema Neuroendócrino</span>
+  <h1>Repaso Neuroendócrino</h1>
+  <p class="lede">Todo lo que entra en la prueba, explicado fácil. Primero leé la <b>Teoría</b>, después escribí tus respuestas en <b>Practicar</b> y comparalas con la respuesta modelo. Lo <span class="hl">resaltado en amarillo</span> es lo que conviene escribir tal cual.</p>
+</header>
+
+<nav class="tabs" role="tablist" aria-label="Secciones">
+  <button role="tab" id="tab-teoria" aria-selected="true" data-view="teoria">1 · Teoría</button>
+  <button role="tab" id="tab-practica" aria-selected="false" data-view="practica">2 · Practicar preguntas</button>
+  <button role="tab" id="tab-esquema" aria-selected="false" data-view="esquema">3 · Armá el esquema</button>
+  <button role="tab" id="tab-tarjetas" aria-selected="false" data-view="tarjetas">4 · Tarjetas</button>
+  <button role="tab" id="tab-quiz" aria-selected="false" data-view="quiz">5 · Autoevaluación</button>
+</nav>
+
+<!-- ================= TEORÍA ================= -->
+<section class="view" id="teoria">
+
+<div class="topic">
+  <h2><span class="num">1</span>La neurona: la célula que pasa mensajes</h2>
+  <p>El sistema nervioso está hecho de <b>neuronas</b>. Una neurona es una célula que <span class="hl">recibe, lleva y pasa mensajes eléctricos</span> (se llaman <b>impulsos nerviosos</b>).</p>
+  <ul>
+    <li><b>Dendritas:</b> las "ramitas" que <b>reciben</b> el mensaje.</li>
+    <li><b>Cuerpo:</b> el centro de la neurona.</li>
+    <li><b>Axón:</b> el "cable" largo por donde <b>viaja</b> el mensaje.</li>
+    <li><b>Terminal del axón:</b> la punta, desde donde el mensaje <b>sale</b> hacia la próxima neurona.</li>
+  </ul>
+  <p class="analogy">Pensalo como una fila de personas pasándose un mensaje en secreto: cada una lo escucha (dendritas), lo lleva (axón) y se lo dice a la siguiente (terminal).</p>
+</div>
+
+<div class="topic">
+  <h2><span class="num">2</span>La sinapsis: cómo una neurona le habla a otra</h2>
+  <p>Las neuronas <b>no se tocan</b>. Entre una y otra queda un espacio chiquito. La <span class="hl">sinapsis es la comunicación entre dos neuronas</span> (o entre una neurona y un músculo), a través de ese espacio.</p>
+  <figure>
+    <svg viewBox="0 0 640 300" role="img" aria-label="Esquema de una sinapsis: neurona que envía arriba, espacio sináptico en el medio y neurona que recibe abajo con sus receptores">
+      <path d="M170 20 L470 20 Q500 20 500 50 L500 110 Q500 140 470 140 L170 140 Q140 140 140 110 L140 50 Q140 20 170 20 Z" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+      <text x="320" y="44" text-anchor="middle" font-size="15" font-weight="700">Neurona 1 (envía el mensaje)</text>
+      <g fill="var(--card)" stroke="var(--accent)" stroke-width="2">
+        <circle cx="230" cy="90" r="18"/><circle cx="300" cy="100" r="18"/><circle cx="370" cy="88" r="18"/>
+      </g>
+      <g fill="var(--exc)"><circle cx="224" cy="86" r="4"/><circle cx="236" cy="95" r="4"/><circle cx="296" cy="96" r="4"/><circle cx="306" cy="104" r="4"/><circle cx="366" cy="84" r="4"/><circle cx="376" cy="93" r="4"/></g>
+      <text x="530" y="95" font-size="13" fill="var(--muted)">vesículas con</text>
+      <text x="530" y="112" font-size="13" fill="var(--muted)">neurotransmisores</text>
+      <g fill="var(--exc)"><circle cx="260" cy="170" r="5"/><circle cx="320" cy="162" r="5"/><circle cx="350" cy="180" r="5"/><circle cx="395" cy="168" r="5"/></g>
+      <text x="40" y="176" font-size="13" fill="var(--muted)">espacio sináptico</text>
+      <path d="M170 210 L470 210 Q500 210 500 240 L500 290 L140 290 L140 240 Q140 210 170 210 Z" fill="var(--inh-soft)" stroke="var(--inh)" stroke-width="2"/>
+      <g fill="none" stroke="var(--inh)" stroke-width="3">
+        <path d="M245 210 v-12 h10 v12"/><path d="M305 210 v-12 h10 v12"/><path d="M365 210 v-12 h10 v12"/><path d="M415 210 v-12 h10 v12"/>
+      </g>
+      <text x="530" y="205" font-size="13" fill="var(--muted)">receptores</text>
+      <text x="530" y="222" font-size="13" fill="var(--muted)">(cerraduras)</text>
+      <text x="320" y="262" text-anchor="middle" font-size="15" font-weight="700">Neurona 2 (recibe el mensaje)</text>
+    </svg>
+    <figcaption>Los puntitos naranjas son los neurotransmisores. Cruzan el espacio y se enganchan en los receptores de la neurona 2.</figcaption>
+  </figure>
+  <p><b>Paso a paso:</b></p>
+  <ol>
+    <li>El impulso eléctrico llega a la punta de la <b>neurona 1</b>.</li>
+    <li>La neurona 1 suelta <b>neurotransmisores</b> (mensajeros químicos) al <b>espacio sináptico</b>.</li>
+    <li>Los neurotransmisores se enganchan en los <b>receptores</b> de la <b>neurona 2</b>, como <span class="hl">una llave en su cerradura</span>.</li>
+    <li>La neurona 2 recibe el mensaje: puede <b>activarse</b> (excitatorio) o <b>frenarse</b> (inhibitorio).</li>
+    <li>Después, los neurotransmisores se sacan del espacio para que el mensaje no quede "prendido" para siempre.</li>
+  </ol>
+  <div class="write">
+    <span class="eyebrow">Para escribir en la prueba</span>
+    <p>La sinapsis es la comunicación entre dos neuronas. La primera neurona libera neurotransmisores en el espacio sináptico, estos se unen a los receptores de la segunda neurona y así le pasan el mensaje.</p>
+  </div>
+</div>
+
+<div class="topic">
+  <h2><span class="num">3</span>Excitatorio o inhibitorio</h2>
+  <div class="pair">
+    <div class="exc"><h3>Excitatorio = acelera</h3><p>Hace que la neurona siguiente <b>se active</b> y mande el mensaje. Más actividad, más alerta.</p><p><b>Ejemplo:</b> glutamato. Café (cafeína).</p></div>
+    <div class="inh"><h3>Inhibitorio = frena</h3><p>Hace que la neurona siguiente <b>se calme</b> o no mande el mensaje. Menos actividad, más lento, sueño.</p><p><b>Ejemplo:</b> adenosina, GABA. Alcohol.</p></div>
+  </div>
+  <p class="analogy">Excitatorio es el acelerador del auto. Inhibitorio es el freno.</p>
+  <p><b>Truco para las preguntas:</b> fijate qué hace la sustancia con el neurotransmisor normal.</p>
+  <ul>
+    <li>Si <b>bloquea un freno</b> (como la cafeína con la adenosina) → el resultado es <b>excitatorio</b>.</li>
+    <li>Si <b>bloquea un acelerador</b> (como el alcohol con el glutamato) → el resultado es <b>inhibitorio</b>.</li>
+    <li>Si <b>imita a un acelerador</b> (como la nicotina) → es <b>excitatoria</b>.</li>
+  </ul>
+</div>
+
+<div class="topic">
+  <h2><span class="num">4</span>El café en la sinapsis</h2>
+  <p>Durante el día, en el cerebro se va juntando <b>adenosina</b>. Es un neurotransmisor <b>inhibitorio</b>: le dice a las neuronas "bajá la velocidad". Por eso a la noche tenés sueño.</p>
+  <p>La <b>cafeína</b> tiene una forma muy parecida a la adenosina. Entonces <span class="hl">la cafeína se mete en los receptores de la adenosina y los tapa</span>, pero no da la orden de frenar.</p>
+  <div class="flow"><span>Tomás café</span><i>→</i><span>La cafeína ocupa los receptores</span><i>→</i><span>La adenosina no puede engancharse</span><i>→</i><span>No llega el "frená"</span><i>→</i><em>Estás despierto y alerta</em></div>
+  <p class="analogy">Es como poner una llave falsa en la cerradura: la llave de verdad (adenosina) ya no puede entrar.</p>
+  <p><b>Efectos en el cuerpo:</b> menos sueño, más atención, el corazón late un poco más rápido, a veces nervios o ganas de ir al baño.</p>
+  <div class="write">
+    <span class="eyebrow">Para escribir en la prueba</span>
+    <p>La cafeína es <b>excitatoria</b> (estimulante): bloquea los receptores de la adenosina, que es un neurotransmisor inhibitorio. Como el freno no puede actuar, las neuronas siguen activas y la persona está más despierta.</p>
+  </div>
+</div>
+
+<div class="topic">
+  <h2><span class="num">5</span>El alcohol en la sinapsis</h2>
+  <p>El <b>etanol</b> (el alcohol de la cerveza) es una molécula chiquita: no hace falta digerirlo, pasa rápido a la sangre y llega al cerebro.</p>
+  <p>El <b>glutamato</b> es un neurotransmisor <b>excitatorio</b>: ayuda a que las neuronas se activen. Es importante para la <b>coordinación de los movimientos</b> y los <b>reflejos</b>.</p>
+  <p><span class="hl">El alcohol se pega a los receptores del glutamato y no lo deja actuar</span>. Así el mensaje de "activate" no llega bien.</p>
+  <div class="flow"><span>Tomás cerveza</span><i>→</i><span>El alcohol ocupa los receptores del glutamato</span><i>→</i><span>El glutamato no puede engancharse</span><i>→</i><span>Las neuronas se activan menos</span><i>→</i><em>Reflejos lentos, mala coordinación</em></div>
+  <p><b>Efectos en el cuerpo:</b> reflejos lentos, cuesta caminar derecho, se habla raro, se piensa más lento, da sueño. Por eso es peligroso manejar.</p>
+  <div class="write">
+    <span class="eyebrow">Para escribir en la prueba</span>
+    <p>El alcohol es <b>inhibitorio</b> (depresor): bloquea los receptores del glutamato, que es excitatorio. Como el acelerador no puede actuar, las neuronas trabajan más lento y se afectan los reflejos y la coordinación.</p>
+  </div>
+</div>
+
+<div class="topic">
+  <h2><span class="num">6</span>El camino de la información (el esquema que siempre toman)</h2>
+  <p>Cada vez que el cuerpo reacciona a algo, la información hace este recorrido:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Paso</th><th>Qué es</th><th>Ejemplo: alguien grita "¡fuego!"</th></tr></thead>
+    <tbody>
+      <tr><td><b>Estímulo</b></td><td>Lo que pasa afuera (o adentro) del cuerpo</td><td>El grito "¡fuego!"</td></tr>
+      <tr><td><b>Sensor (receptor)</b></td><td>El órgano de los sentidos que lo detecta</td><td>Los oídos</td></tr>
+      <tr><td><b>Vía sensitiva (aferente)</b></td><td>Neuronas que <b>llevan</b> el mensaje <b>al</b> centro de control</td><td>Nervio auditivo</td></tr>
+      <tr><td><b>Centro de control</b></td><td>Donde se decide qué hacer</td><td>El cerebro (encéfalo)</td></tr>
+      <tr><td><b>Vía motora (eferente)</b></td><td>Neuronas que <b>llevan la orden</b> desde el centro hasta el efector</td><td>Nervios motores</td></tr>
+      <tr><td><b>Efector</b></td><td>El músculo o glándula que hace la acción</td><td>Músculos de las piernas</td></tr>
+      <tr><td><b>Respuesta</b></td><td>Lo que termina pasando</td><td>Se levantan y salen corriendo</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Para acordarte:</b> <span class="hl">Aferente = Arriba/Adentro</span> (va hacia el cerebro). <span class="hl">Eferente = Efector</span> (va hacia el músculo).</p>
+  <p>En un <b>acto reflejo</b> (sacar la mano de una olla caliente) el centro de control es la <b>médula espinal</b>, no el cerebro. Por eso es tan rápido.</p>
+</div>
+
+<div class="topic">
+  <h2><span class="num">7</span>Sistema nervioso somático y autónomo</h2>
+  <div class="pair">
+    <div class="exc"><h3>Somático = lo que manejás vos</h3><p>Controla los movimientos <b>voluntarios</b>, los que decidís hacer. Usa los músculos del esqueleto.</p><p><b>Ejemplos:</b> correr, caminar, agarrar la taza, hablar, gritar, saltar, comer la torta (llevarla a la boca y masticar).</p></div>
+    <div class="inh"><h3>Autónomo = funciona solo</h3><p>Controla lo <b>involuntario</b>, lo que pasa sin que lo pienses: corazón, respiración, digestión, sudor.</p><p><b>Ejemplos:</b> el corazón late más rápido, respirás más rápido, transpirás, se te dilatan las pupilas, digerís la torta.</p></div>
+  </div>
+  <p>El autónomo tiene dos partes:</p>
+  <ul>
+    <li><b>Simpático:</b> el modo <b>"alerta / peligro"</b>. Acelera el corazón, la respiración, frena la digestión. Se activa con el susto del fuego o la emoción del gol.</li>
+    <li><b>Parasimpático:</b> el modo <b>"tranqui / descanso"</b>. Baja el ritmo del corazón y activa la digestión. Funciona cuando estás relajado comiendo torta.</li>
+  </ul>
+  <div class="write">
+    <span class="eyebrow">Para escribir en la prueba</span>
+    <p>Una acción del autónomo es que se acelera el corazón, porque es involuntaria: no lo decidimos. Una del somático es correr o gritar, porque es voluntaria: la persona decide mover los músculos.</p>
+  </div>
+</div>
+
+<div class="topic">
+  <h2><span class="num">8</span>El sistema endócrino: las hormonas</h2>
+  <p>Es el otro sistema que coordina el cuerpo, pero en vez de cables (neuronas) usa <b>la sangre</b>.</p>
+  <ul>
+    <li><b>Glándula:</b> el órgano que <span class="hl">fabrica la hormona y la suelta a la sangre</span>.</li>
+    <li><b>Hormona:</b> un mensajero químico que <span class="hl">viaja por la sangre</span>.</li>
+    <li><b>Órgano blanco:</b> el órgano que <span class="hl">tiene receptores para esa hormona</span> y por eso responde a ella.</li>
+  </ul>
+  <p class="analogy">La glándula es como una radio que transmite por todo el cuerpo. Solo los órganos que tienen la "antena" justa (el receptor) escuchan el mensaje.</p>
+  <p><b>Centro de control del sistema endócrino:</b> el <b>hipotálamo</b> (en el cerebro) y la <b>hipófisis</b> (una glándula chiquita debajo del cerebro). El hipotálamo es el puente entre el sistema nervioso y el endócrino.</p>
+</div>
+
+<div class="topic">
+  <h2><span class="num">9</span>La adrenalina</h2>
+  <ul>
+    <li><b>¿Hormona o neurotransmisor?</b> En este caso es una <span class="hl">hormona</span>, porque la fabrica una glándula y <b>viaja por la sangre</b> hasta el órgano. (Los neurotransmisores solo cruzan el espacio chiquito de la sinapsis.)</li>
+    <li><b>Glándula:</b> las <span class="hl">glándulas suprarrenales</span>, que están arriba de los riñones. Son las que la fabrican y la sueltan a la sangre.</li>
+    <li><b>Órgano blanco:</b> el <span class="hl">corazón</span>, porque tiene receptores para la adrenalina y responde latiendo más rápido. (También actúa en pulmones y músculos.)</li>
+  </ul>
+  <p><b>Cómo se regula:</b></p>
+  <div class="flow"><span>Emoción del gol</span><i>→</i><span>El cerebro / hipotálamo lo detecta</span><i>→</i><span>Manda la orden a las suprarrenales</span><i>→</i><span>Sueltan adrenalina a la sangre</span><i>→</i><span>Llega al corazón</span><i>→</i><em>Late más rápido</em></div>
+  <p class="hint">Dato: el hipotálamo es el centro de control. Para la adrenalina manda la orden a las suprarrenales a través de nervios del simpático. Si en clase lo vieron como hipotálamo → hipófisis → suprarrenales, escribilo como lo dio tu profe.</p>
+</div>
+
+<div class="topic">
+  <h2><span class="num">10</span>Retroalimentación (feedback)</h2>
+  <div class="pair">
+    <div class="inh"><h3>Negativa = "ya está, pará"</h3><p>Cuando el efecto ya se logró, se <b>frena</b> la producción de la hormona. Así el cuerpo vuelve a la normalidad (equilibrio, se llama <b>homeostasis</b>).</p><p>Es la más común: adrenalina, insulina.</p></div>
+    <div class="exc"><h3>Positiva = "más y más"</h3><p>El efecto hace que se produzca <b>todavía más</b> hormona. Pasa en casos especiales y cortos, como el parto.</p></div>
+  </div>
+  <p class="analogy">La negativa funciona como el aire acondicionado: cuando llega a la temperatura que pusiste, se apaga solo.</p>
+  <div class="write">
+    <span class="eyebrow">Para escribir en la prueba</span>
+    <p>La adrenalina tiene retroalimentación <b>negativa</b>: cuando pasa la emoción o el peligro, se deja de producir y el corazón vuelve a latir normal. Si fuera positiva, el corazón se aceleraría cada vez más y sería peligroso.</p>
+  </div>
+</div>
+
+<div class="topic">
+  <h2><span class="num">11</span>La insulina</h2>
+  <ul>
+    <li><b>Estímulo:</b> hay mucha <b>glucosa</b> (azúcar) en la sangre, por ejemplo después de comer torta.</li>
+    <li><b>Glándula:</b> el <span class="hl">páncreas</span>.</li>
+    <li><b>Hormona:</b> <span class="hl">insulina</span>, viaja por la sangre.</li>
+    <li><b>Órgano blanco:</b> el <span class="hl">hígado</span> (y los músculos): guardan la glucosa que sobra.</li>
+    <li><b>Respuesta:</b> baja la glucosa en sangre.</li>
+    <li><b>Retroalimentación:</b> <span class="hl">negativa</span>. Cuando la glucosa vuelve a lo normal, el páncreas deja de largar insulina.</li>
+  </ul>
+  <p>La hormona contraria es el <b>glucagón</b> (también del páncreas): cuando hay <b>poca</b> glucosa (no comiste), le pide al hígado que suelte la que tenía guardada.</p>
+  <div class="flow"><span>Comés torta</span><i>→</i><span>Sube la glucosa</span><i>→</i><span>Páncreas larga insulina</span><i>→</i><span>Hígado guarda glucosa</span><i>→</i><span>Baja la glucosa</span><i>→</i><em>Páncreas frena</em></div>
+</div>
+
+<div class="topic">
+  <h2><span class="num">12</span>Nervioso vs. endócrino</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th></th><th>Comunicación nerviosa</th><th>Comunicación endócrina</th></tr></thead>
+    <tbody>
+      <tr><td><b>Mensajero</b></td><td>Impulso eléctrico + neurotransmisores</td><td>Hormonas</td></tr>
+      <tr><td><b>Por dónde viaja</b></td><td>Por las neuronas (nervios)</td><td>Por la sangre</td></tr>
+      <tr><td><b>Velocidad</b></td><td>Muy rápida (milésimas de segundo)</td><td>Más lenta (segundos a horas)</td></tr>
+      <tr><td><b>Cuánto dura</b></td><td>Poco</td><td>Más tiempo</td></tr>
+      <tr><td><b>A quién llega</b></td><td>A un lugar puntual (un músculo)</td><td>A todos los órganos con receptores</td></tr>
+      <tr><td><b>Ejemplo</b></td><td>Gritar y saltar al ver el gol</td><td>El corazón sigue acelerado un rato por la adrenalina</td></tr>
+    </tbody>
+  </table></div>
+  <p class="analogy">Nervioso = un mensaje de WhatsApp a una persona: llega al toque. Endócrino = un anuncio por la radio: tarda más, llega a todos los que lo sintonizan y dura más.</p>
+</div>
+
+</section>
+
+<!-- ================= PRÁCTICA ================= -->
+<section class="view" id="practica" hidden>
+  <div class="progress">
+    <p><b id="prog-txt">0 de 0 aprendidas</b> · Escribí con tus palabras y después mirá la respuesta modelo. Las palabras clave se prenden en verde cuando las usás.</p>
+    <div class="bar"><div id="prog-bar"></div></div>
+  </div>
+  <div class="filters" id="filters">
+    <button aria-pressed="true" data-f="all">Todas</button>
+    <button aria-pressed="false" data-f="Prueba">De la prueba</button>
+    <button aria-pressed="false" data-f="Parecida">Parecidas</button>
+    <button aria-pressed="false" data-f="pend">Me faltan</button>
+  </div>
+  <div id="qlist" style="display:flex;flex-direction:column;gap:16px"></div>
+</section>
+
+<!-- ================= ESQUEMA ================= -->
+<section class="view" id="esquema" hidden>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <h2>Armá el esquema</h2>
+    <p class="lede">Tocá las piezas de la derecha en el orden correcto: van llenando los casilleros de arriba hacia abajo. Para sacar una, tocá el casillero.</p>
+  </div>
+  <div class="scenarios" id="scenarios"></div>
+  <p id="sc-desc"></p>
+  <div class="board">
+    <div class="col" id="slots"></div>
+    <div class="col"><span class="eyebrow">Piezas</span><div class="col" id="pieces"></div></div>
+  </div>
+  <div class="actions"><button class="btn primary" id="sc-check">Corregir</button><button class="btn" id="sc-reset">Empezar de nuevo</button></div>
+  <p class="msg" id="sc-msg" aria-live="polite"></p>
+</section>
+
+<!-- ================= TARJETAS ================= -->
+<section class="view" id="tarjetas" hidden>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <h2>Tarjetas de memoria</h2>
+    <p class="lede">Leé la palabra, intentá decir qué significa en voz alta y después tocá la tarjeta para darla vuelta.</p>
+  </div>
+  <div class="cardstage">
+    <button class="flash" id="flash" aria-live="polite"></button>
+    <div class="cardnav">
+      <button class="btn" id="fc-prev">← Anterior</button>
+      <span class="counter" id="fc-count"></span>
+      <button class="btn" id="fc-shuffle">Mezclar</button>
+      <button class="btn primary" id="fc-next">Siguiente →</button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= QUIZ ================= -->
+<section class="view" id="quiz" hidden>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <h2>Autoevaluación</h2>
+    <p class="lede">Preguntas rápidas de opción múltiple. Si te equivocás, leé la explicación.</p>
+    <p class="score" id="qz-score" aria-live="polite"></p>
+  </div>
+  <div id="qz" style="display:flex;flex-direction:column;gap:22px"></div>
+  <div class="actions"><button class="btn" id="qz-reset">Volver a empezar</button></div>
+</section>
+</div>
+
+<script>
+const store={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ---------- pestañas ---------- */
+const tabs=[...document.querySelectorAll('nav.tabs button')];
+function showView(id){
+  tabs.forEach(t=>t.setAttribute('aria-selected',t.dataset.view===id));
+  document.querySelectorAll('section.view').forEach(s=>s.hidden=s.id!==id);
+  store.set('rn-tab',id);
+}
+tabs.forEach(t=>t.addEventListener('click',()=>{showView(t.dataset.view);window.scrollTo({top:0})}));
+const startTab=(location.hash||'').slice(1);
+showView(['teoria','practica','esquema','tarjetas','quiz'].includes(startTab)?startTab:store.get('rn-tab','teoria'));
+
+/* ---------- práctica ---------- */
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+const QS=[
+{id:'p1',src:'Prueba',topic:'Café',q:'Realizá un esquema de lo que sucede en la sinapsis cuando se consume café.',
+ hint:'Nombrá las dos neuronas, la adenosina, la cafeína y los receptores. Usá flechas.',
+ kw:[['neurona'],['sinapsis','espacio sinaptico'],['adenosina'],['cafeina'],['receptor'],['bloquea','tapa','ocupa']],
+ a:`<ol><li><b>Neurona 1</b> libera <b>adenosina</b> (neurotransmisor inhibitorio) al <b>espacio sináptico</b>.</li><li>La <b>cafeína</b>, que se parece a la adenosina, ya está ocupando los <b>receptores</b> de la <b>neurona 2</b>.</li><li>La adenosina <b>no puede unirse</b> a los receptores.</li><li>La neurona 2 no recibe la orden de frenar → sigue activa.</li><li><b>Resultado:</b> menos sueño, más alerta.</li></ol><p class="hint">En la hoja dibujá dos neuronas, el espacio en el medio, los receptores como cerraduras, la cafeína tapando las cerraduras y la adenosina "afuera" sin poder entrar.</p>`},
+{id:'p2',src:'Prueba',topic:'Café',q:'Explicale a tu abuelo cómo afecta el café a la sinapsis y qué efecto tiene en el cuerpo. (Usá: sinapsis, neurotransmisor, receptor, neurona.)',
+ hint:'Hablale como a alguien que no sabe nada. Usá la idea de la llave y la cerradura.',
+ kw:[['sinapsis'],['neurotransmisor'],['receptor'],['neurona'],['adenosina'],['cafeina']],
+ a:`<p>"Mirá abuelo: en el cerebro hay unas células que se llaman <b>neuronas</b> y se pasan mensajes entre ellas. El lugar donde se pasan el mensaje se llama <b>sinapsis</b>. Para hablar, una neurona suelta unas sustancias que se llaman <b>neurotransmisores</b>, que se enganchan en la otra neurona en unos <b>receptores</b>, como una llave en una cerradura.</p><p>Durante el día se junta un neurotransmisor llamado adenosina, que le dice a las neuronas 'bajá un cambio', y por eso a la noche te da sueño. La cafeína del café se parece mucho a la adenosina, entonces se mete en esas cerraduras y las tapa. La adenosina no puede engancharse y el mensaje de 'descansá' no llega.</p><p>Por eso después de un café estás más despierto, más atento, con menos sueño, y el corazón te late un poquito más rápido."</p>`},
+{id:'p3',src:'Prueba',topic:'Café',q:'¿El café (la cafeína) es una sustancia inhibitoria o excitatoria? Explicá.',
+ hint:'¿Qué hace la adenosina normalmente? ¿Y qué pasa si la bloqueás?',
+ kw:[['excitatori','estimulante'],['adenosina'],['inhibitori','frena'],['bloquea','tapa','ocupa'],['activ','alerta','despiert']],
+ a:`<p>Es <b>excitatoria</b> (estimulante). La adenosina es un neurotransmisor <b>inhibitorio</b> que frena a las neuronas y da sueño. La cafeína bloquea sus receptores, entonces ese freno no actúa y las neuronas siguen <b>activas</b>: la persona está más despierta y alerta.</p>`},
+{id:'p4',src:'Prueba',topic:'Esquema',q:'Violeta está en un café con amigas y un cliente grita "¡fuego!". Hacé el esquema estímulo → sensor → centro de control → efector → respuesta, mencionando las vías nerviosas.',
+ hint:'No te olvides de las dos vías: sensitiva (aferente) y motora (eferente).',
+ kw:[['estimulo'],['sensor','receptor','oido'],['aferente','sensitiv'],['centro de control','cerebro','encefalo'],['eferente','motor'],['efector','musculo'],['respuesta']],
+ a:`<ol><li><b>Estímulo:</b> el grito "¡fuego!".</li><li><b>Sensor:</b> los oídos.</li><li><b>Vía sensitiva (aferente):</b> el nervio auditivo lleva la información al cerebro.</li><li><b>Centro de control:</b> el cerebro (encéfalo), que interpreta "peligro" y decide huir.</li><li><b>Vía motora (eferente):</b> los nervios motores llevan la orden a los músculos.</li><li><b>Efector:</b> los músculos de las piernas.</li><li><b>Respuesta:</b> se levanta y sale corriendo.</li></ol>`},
+{id:'p5',src:'Prueba',topic:'Esquema',q:'Lucio ve el gol de Messi en el debut del Mundial y grita de alegría. Hacé el esquema estímulo → sensor → centro de control → efector → respuesta con las vías nerviosas.',
+ hint:'¿Con qué sentido se da cuenta del gol? ¿Qué músculos usa para gritar y saltar?',
+ kw:[['estimulo'],['sensor','receptor','ojo'],['aferente','sensitiv'],['centro de control','cerebro','encefalo'],['eferente','motor'],['efector','musculo'],['respuesta']],
+ a:`<ol><li><b>Estímulo:</b> ver el gol en la tele.</li><li><b>Sensor:</b> los ojos.</li><li><b>Vía sensitiva (aferente):</b> el nervio óptico lleva la imagen al cerebro.</li><li><b>Centro de control:</b> el cerebro, que entiende "¡gol!" y decide festejar.</li><li><b>Vía motora (eferente):</b> los nervios motores llevan la orden.</li><li><b>Efector:</b> músculos de brazos y piernas, y los de la garganta (cuerdas vocales).</li><li><b>Respuesta:</b> salta y grita de alegría.</li></ol>`},
+{id:'p6',src:'Prueba',topic:'Autónomo / somático',q:'En el ejemplo del café y el grito de "fuego", mencioná una acción regulada por el SN autónomo y una por el somático.',
+ hint:'Autónomo = lo que pasa solo. Somático = lo que decidís hacer.',
+ kw:[['autonomo'],['somatico'],['involuntari','sin querer','solo'],['voluntari','decide']],
+ a:`<ul><li><b>Autónomo:</b> se le acelera el corazón por el susto (o digiere la torta). Es involuntario, pasa solo.</li><li><b>Somático:</b> se levanta y sale corriendo (o agarra la taza, charla con sus amigas). Es voluntario, ella decide mover los músculos.</li></ul>`},
+{id:'p7',src:'Prueba',topic:'Autónomo / somático',q:'En el partido, mencioná una acción regulada por el SN autónomo y una por el somático (que no sea la del esquema). Justificá.',
+ hint:'Pensá en el cuerpo de Lucio por dentro (corazón, sudor) y en algo que él hace a propósito.',
+ kw:[['autonomo'],['somatico'],['involuntari','solo'],['voluntari','decide']],
+ a:`<ul><li><b>Autónomo:</b> el corazón le late más rápido / transpira / respira más rápido. Es involuntario: no lo puede controlar.</li><li><b>Somático:</b> abrazar a sus amigos, abrir una lata de cerveza o aplaudir. Es voluntario: él decide moverse.</li></ul>`},
+{id:'p8',src:'Prueba',topic:'Adrenalina',q:'¿Qué tipo de sustancia es la adrenalina en este caso, hormona o neurotransmisor? ¿Por qué?',
+ hint:'Fijate en el enunciado: "proviene de las suprarrenales y fluye por la sangre".',
+ kw:[['hormona'],['sangre'],['glandula','suprarrenal']],
+ a:`<p>Es una <b>hormona</b>, porque la fabrica una <b>glándula</b> (las suprarrenales) y viaja <b>por la sangre</b> hasta el órgano donde actúa. Un neurotransmisor, en cambio, solo cruza el espacio de la sinapsis entre dos neuronas.</p>`},
+{id:'p9',src:'Prueba',topic:'Adrenalina',q:'¿Cuál es la glándula que produce la adrenalina? ¿Por qué?',hint:'Están arriba de los riñones.',
+ kw:[['suprarrenal'],['fabrica','produce'],['sangre','libera']],
+ a:`<p>Las <b>glándulas suprarrenales</b> (arriba de los riñones), porque son las que <b>fabrican</b> la adrenalina y la <b>liberan a la sangre</b>.</p>`},
+{id:'p10',src:'Prueba',topic:'Adrenalina',q:'¿Cuál es el órgano blanco de la adrenalina en el ejemplo? ¿Por qué?',hint:'El enunciado dice qué aumenta.',
+ kw:[['corazon'],['receptor'],['frecuencia','late','rapido']],
+ a:`<p>El <b>corazón</b>, porque tiene <b>receptores</b> para la adrenalina y responde a ella aumentando la frecuencia cardíaca (late más rápido).</p>`},
+{id:'p11',src:'Prueba',topic:'Adrenalina',q:'Explicá cómo se regula la producción de adrenalina mencionando las estructuras que funcionan como centro de control endócrino.',
+ hint:'Empezá por el estímulo (el gol) y terminá en el corazón. El centro de control es el hipotálamo.',
+ kw:[['hipotalamo'],['hipofisis','nervio','simpatico'],['suprarrenal'],['sangre'],['corazon'],['negativa','frena','deja de']],
+ a:`<ol><li>Estímulo: la emoción del gol.</li><li>El <b>hipotálamo</b> (en el cerebro) es el centro de control: detecta la emoción y manda la orden. Junto con la <b>hipófisis</b> controla el sistema endócrino.</li><li>La orden llega a las <b>glándulas suprarrenales</b> (en el caso de la adrenalina, por nervios del simpático).</li><li>Las suprarrenales liberan adrenalina a la <b>sangre</b>.</li><li>Llega al <b>corazón</b> (órgano blanco), que late más rápido.</li><li>Cuando pasa la emoción, el hipotálamo deja de dar la orden y se frena la producción (retroalimentación negativa).</li></ol>`},
+{id:'p12',src:'Prueba',topic:'Retroalimentación',q:'¿Qué tipo de retroalimentación debería tener la producción de adrenalina? ¿Por qué?',
+ hint:'¿Qué pasaría si el corazón se acelerara cada vez más sin parar?',
+ kw:[['negativa'],['frena','deja de','disminu','baja'],['normal','equilibrio','homeostasis']],
+ a:`<p><b>Negativa</b>. Cuando ya pasó la emoción o el peligro, se deja de producir adrenalina y el corazón vuelve a latir normal. Así el cuerpo mantiene el equilibrio (homeostasis). Si fuera positiva, el corazón se aceleraría cada vez más y sería peligroso.</p>`},
+{id:'p13',src:'Prueba',topic:'Nervioso vs endócrino',q:'Mencioná diferencias entre la comunicación nerviosa y la endócrina usando los ejemplos del partido.',
+ hint:'Compará: mensajero, por dónde viaja, velocidad, duración.',
+ kw:[['neurotransmisor','impulso'],['hormona'],['sangre'],['neurona','nervio'],['rapid'],['lent'],['dura']],
+ a:`<ul><li><b>Mensajero:</b> la nerviosa usa impulsos eléctricos y neurotransmisores; la endócrina usa hormonas (adrenalina).</li><li><b>Camino:</b> la nerviosa va por las neuronas; la endócrina va por la sangre.</li><li><b>Velocidad:</b> la nerviosa es muy rápida (Lucio salta apenas ve el gol); la endócrina es más lenta.</li><li><b>Duración:</b> la nerviosa dura poco (el salto); la endócrina dura más (el corazón sigue acelerado un rato después del gol).</li></ul>`},
+{id:'p14',src:'Prueba',topic:'Sinapsis',q:'Explicá en qué consiste el proceso de sinapsis.',
+ hint:'Usá los pasos: impulso → libera neurotransmisores → espacio → receptores.',
+ kw:[['neurona'],['neurotransmisor'],['espacio sinaptico','espacio'],['receptor'],['impulso','mensaje']],
+ a:`<p>La sinapsis es la <b>comunicación entre dos neuronas</b>. Cuando el impulso llega a la punta de la primera neurona, esta libera <b>neurotransmisores</b> al <b>espacio sináptico</b>. Los neurotransmisores se unen a los <b>receptores</b> de la segunda neurona (como una llave en su cerradura) y así le pasan el mensaje, que puede activarla (excitatorio) o frenarla (inhibitorio).</p>`},
+{id:'p15',src:'Prueba',topic:'Alcohol',q:'Realizá un esquema que muestre lo que sucede en la sinapsis cuando se consume cerveza.',
+ hint:'Igual que el del café, pero con glutamato (excitatorio) y alcohol.',
+ kw:[['neurona'],['glutamato'],['alcohol','etanol'],['receptor'],['bloquea','ocupa','adhiere','pega']],
+ a:`<ol><li><b>Neurona 1</b> libera <b>glutamato</b> (neurotransmisor excitatorio) al espacio sináptico.</li><li>El <b>alcohol</b> (etanol) llegó por la sangre y está pegado a los <b>receptores</b> del glutamato en la <b>neurona 2</b>.</li><li>El glutamato <b>no puede unirse</b> bien.</li><li>La neurona 2 se activa menos.</li><li><b>Resultado:</b> reflejos lentos y mala coordinación.</li></ol>`},
+{id:'p16',src:'Prueba',topic:'Alcohol',q:'Explicale a tu abuelo cómo afecta la cerveza a la sinapsis y qué efecto tiene en el cuerpo. (Usá: sinapsis, neurotransmisor, receptor, neurona.)',
+ hint:'Misma estructura que la del café, pero ahora se bloquea el "acelerador".',
+ kw:[['sinapsis'],['neurotransmisor'],['receptor'],['neurona'],['glutamato'],['alcohol']],
+ a:`<p>"Abuelo, en el cerebro las <b>neuronas</b> se pasan mensajes. Donde se pasan el mensaje se llama <b>sinapsis</b>. Una neurona suelta <b>neurotransmisores</b> que se enganchan en los <b>receptores</b> de la otra, como una llave en una cerradura.</p><p>Uno de esos neurotransmisores es el glutamato, que hace que las neuronas se activen y sirve para coordinar los movimientos y tener buenos reflejos. El alcohol de la cerveza llega rápido a la sangre y al cerebro, y se pega en las cerraduras del glutamato. Así el glutamato no puede hacer su trabajo.</p><p>Por eso cuando tomás de más los reflejos son lentos, cuesta caminar derecho, hablás raro y te da sueño. Por eso no hay que manejar."</p>`},
+{id:'p17',src:'Prueba',topic:'Alcohol',q:'¿Qué tipo de sustancia es el alcohol, inhibitoria o excitatoria? ¿Por qué?',
+ hint:'El glutamato es acelerador. Si lo bloqueás, ¿qué pasa?',
+ kw:[['inhibitori','depresor'],['glutamato'],['excitatori'],['bloquea','impide','no deja'],['reflejo','coordinacion','lent']],
+ a:`<p>Es <b>inhibitoria</b> (depresora). Bloquea los receptores del <b>glutamato</b>, que es un neurotransmisor <b>excitatorio</b>. Como no deja actuar al "acelerador", las neuronas trabajan más lento: los reflejos y la coordinación empeoran.</p>`},
+{id:'p18',src:'Prueba',topic:'Insulina',q:'Violeta comió torta y le subió la glucosa en sangre. ¿Cuál es la glándula, la hormona y el órgano blanco? ¿Qué tipo de retroalimentación hay?',
+ hint:'El enunciado de la prueba te da casi todo: páncreas, insulina, hígado.',
+ kw:[['pancreas'],['insulina'],['higado'],['glucosa'],['negativa']],
+ a:`<ul><li><b>Estímulo:</b> mucha glucosa en sangre después de la torta.</li><li><b>Glándula:</b> páncreas.</li><li><b>Hormona:</b> insulina, que viaja por la sangre.</li><li><b>Órgano blanco:</b> hígado, que guarda la glucosa que sobra.</li><li><b>Retroalimentación negativa:</b> cuando la glucosa vuelve a lo normal, el páncreas deja de liberar insulina.</li></ul>`},
+{id:'s1',src:'Parecida',topic:'Estimulantes',q:'Un chico toma una bebida energizante antes de rendir. Tiene cafeína. ¿Qué pasa en la sinapsis y qué tipo de sustancia es?',
+ hint:'Es exactamente el mismo mecanismo que el café.',
+ kw:[['cafeina'],['adenosina'],['receptor'],['bloquea','tapa','ocupa'],['excitatori','estimulante']],
+ a:`<p>La cafeína ocupa los <b>receptores</b> de la <b>adenosina</b> en la neurona que recibe. La adenosina (que frena y da sueño) no puede actuar. Es <b>excitatoria</b>: el chico está más despierto, con el corazón más rápido, y si toma mucho puede estar nervioso o no dormir.</p>`},
+{id:'s2',src:'Parecida',topic:'Estimulantes',q:'La nicotina del cigarrillo se parece al neurotransmisor acetilcolina y activa sus receptores. ¿Es excitatoria o inhibitoria?',
+ hint:'Ojo: acá la sustancia no tapa el receptor, lo activa (imita al neurotransmisor).',
+ kw:[['excitatori','estimulante'],['receptor'],['imita','activa','parece']],
+ a:`<p><b>Excitatoria</b>. La nicotina <b>imita</b> a la acetilcolina: se engancha en sus receptores y los <b>activa</b>, entonces la neurona siguiente se activa. Es la diferencia con la cafeína y el alcohol: esos <b>bloquean</b> el receptor, la nicotina lo <b>prende</b>.</p>`},
+{id:'s3',src:'Parecida',topic:'Depresores',q:'Un medicamento tranquilizante hace que el GABA (neurotransmisor inhibitorio) funcione más fuerte. ¿Qué efecto tiene en el cuerpo y qué tipo de sustancia es?',
+ hint:'Si el freno funciona más fuerte...',
+ kw:[['inhibitori','depresor'],['gaba'],['frena','calma','relaja','sueno']],
+ a:`<p>Es <b>inhibitoria</b>. Si el <b>GABA</b>, que ya es un freno, funciona más fuerte, las neuronas se activan menos. La persona se siente más tranquila, relajada, con sueño y con reflejos más lentos.</p>`},
+{id:'s4',src:'Parecida',topic:'Esquema',q:'Agarrás una olla muy caliente y sacás la mano sin pensarlo. Hacé el esquema completo. ¿Cuál es el centro de control?',
+ hint:'Es un acto reflejo: el mensaje no llega primero al cerebro.',
+ kw:[['estimulo'],['piel','receptor','sensor'],['aferente','sensitiv'],['medula'],['eferente','motor'],['musculo','efector'],['reflejo']],
+ a:`<ol><li><b>Estímulo:</b> el calor de la olla.</li><li><b>Sensor:</b> receptores de calor en la piel de la mano.</li><li><b>Vía sensitiva (aferente):</b> neuronas sensitivas.</li><li><b>Centro de control:</b> la <b>médula espinal</b> (es un acto reflejo, por eso es tan rápido).</li><li><b>Vía motora (eferente):</b> neuronas motoras.</li><li><b>Efector:</b> músculos del brazo.</li><li><b>Respuesta:</b> sacás la mano.</li></ol>`},
+{id:'s5',src:'Parecida',topic:'Autónomo / somático',q:'Vas caminando de noche y un perro te ladra de golpe. Nombrá una respuesta del simpático y una del somático.',
+ hint:'Simpático = modo alerta (corazón, respiración, pupilas).',
+ kw:[['simpatico','autonomo'],['somatico'],['corazon','respira','pupila','transpira'],['corre','camina','salta','grita']],
+ a:`<ul><li><b>Simpático (autónomo):</b> se acelera el corazón, respirás más rápido, se dilatan las pupilas. Pasa solo.</li><li><b>Somático:</b> saltás para atrás, cruzás la calle o salís corriendo. Lo decidís vos.</li></ul>`},
+{id:'s6',src:'Parecida',topic:'Insulina',q:'Hace muchas horas que no comés y la glucosa en sangre está baja. ¿Qué hormona actúa, de qué glándula y qué hace?',
+ hint:'Es la contraria de la insulina.',
+ kw:[['glucagon'],['pancreas'],['higado'],['glucosa'],['libera','suelta','sube']],
+ a:`<p>Actúa el <b>glucagón</b>, que también fabrica el <b>páncreas</b>. Viaja por la sangre hasta el <b>hígado</b> (órgano blanco) y le indica que suelte la glucosa que tenía guardada. Así la glucosa en sangre sube a lo normal (retroalimentación negativa).</p>`},
+{id:'s7',src:'Parecida',topic:'Nervioso vs endócrino',q:'Te asustás con el perro: saltás en un segundo, pero el corazón sigue acelerado varios minutos. Explicá por qué con los dos sistemas.',
+ hint:'Una respuesta es rápida y corta, la otra lenta y larga.',
+ kw:[['nervios'],['endocrin','hormona'],['adrenalina'],['sangre'],['rapid'],['dura']],
+ a:`<p>El salto es una respuesta del <b>sistema nervioso</b>: el mensaje va por neuronas, es <b>muy rápido</b> y dura poco. El corazón acelerado se mantiene por la <b>adrenalina</b>, una <b>hormona</b> del sistema endócrino: viaja por la <b>sangre</b>, tarda más en actuar y su efecto <b>dura más</b>, hasta que se elimina.</p>`}
+];
+let done=store.get('rn-done',{}), drafts=store.get('rn-drafts',{}), filter='all';
+const qlist=document.getElementById('qlist');
+function renderQs(){
+  qlist.innerHTML='';
+  QS.filter(x=>filter==='all'||(filter==='pend'?!done[x.id]:x.src===filter)).forEach((x,i)=>{
+    const el=document.createElement('article');el.className='q'+(done[x.id]?' done':'');
+    el.innerHTML=`<div class="qhead"><span class="tag${x.src==='Parecida'?' sim':''}">${x.src==='Prueba'?'De la prueba':'Parecida'}</span><span class="eyebrow">${x.topic}</span></div>
+      <p class="prompt">${x.q}</p>
+      <label class="eyebrow" for="ta-${x.id}">Tu respuesta</label>
+      <textarea id="ta-${x.id}" placeholder="Escribí acá con tus palabras..."></textarea>
+      <div class="chips"><span class="hint">Palabras clave:</span>${x.kw.map((k,j)=>`<span class="chip" data-j="${j}">${k[0]}</span>`).join('')}</div>
+      <div class="actions"><button class="btn" data-a="hint">Pista</button><button class="btn primary" data-a="ans">Ver respuesta modelo</button><button class="btn ok" data-a="done" aria-pressed="${!!done[x.id]}">${done[x.id]?'✓ Ya la sé':'Marcar como aprendida'}</button></div>
+      <p class="hint" hidden data-p="hint">💡 ${x.hint}</p>
+      <div class="answer" hidden data-p="ans"><span class="eyebrow">Respuesta modelo</span>${x.a}</div>`;
+    const ta=el.querySelector('textarea'), chips=[...el.querySelectorAll('.chip')];
+    const check=()=>{const t=norm(ta.value);chips.forEach(c=>c.classList.toggle('on',x.kw[c.dataset.j].some(w=>t.includes(norm(w)))))};
+    ta.value=drafts[x.id]||'';check();
+    ta.addEventListener('input',()=>{drafts[x.id]=ta.value;store.set('rn-drafts',drafts);check()});
+    el.querySelector('[data-a="hint"]').onclick=()=>{const p=el.querySelector('[data-p="hint"]');p.hidden=!p.hidden};
+    el.querySelector('[data-a="ans"]').onclick=e=>{const p=el.querySelector('[data-p="ans"]');p.hidden=!p.hidden;e.target.textContent=p.hidden?'Ver respuesta modelo':'Ocultar respuesta'};
+    el.querySelector('[data-a="done"]').onclick=()=>{done[x.id]=!done[x.id];store.set('rn-done',done);renderQs();updateProg()};
+    qlist.appendChild(el);
+  });
+}
+function updateProg(){const n=QS.filter(x=>done[x.id]).length;document.getElementById('prog-txt').textContent=`${n} de ${QS.length} aprendidas`;document.getElementById('prog-bar').style.width=(n/QS.length*100)+'%'}
+document.querySelectorAll('#filters button').forEach(b=>b.onclick=()=>{filter=b.dataset.f;document.querySelectorAll('#filters button').forEach(o=>o.setAttribute('aria-pressed',o===b));renderQs()});
+renderQs();updateProg();
+
+/* ---------- esquema ---------- */
+const ROLES=['Estímulo','Sensor','Vía sensitiva (aferente)','Centro de control','Vía motora (eferente)','Efector','Respuesta'];
+const SC=[
+ {n:'¡Fuego! en el café',d:'Violeta está con sus amigas y un cliente grita "¡fuego!".',p:['Escuchar el grito "¡fuego!"','Los oídos','El nervio auditivo lleva el mensaje','El cerebro decide escapar','Los nervios motores llevan la orden','Los músculos de las piernas','Se levanta y sale corriendo']},
+ {n:'Gol de Messi',d:'Lucio ve el gol en la tele y grita de alegría.',p:['Ver el gol en la tele','Los ojos','El nervio óptico lleva la imagen','El cerebro entiende "¡gol!"','Los nervios motores llevan la orden','Músculos de brazos, piernas y garganta','Salta y grita de alegría']},
+ {n:'Olla caliente',d:'Tocás una olla muy caliente y sacás la mano sin pensar (acto reflejo).',p:['El calor de la olla','Receptores de calor en la piel','Neuronas sensitivas','La médula espinal','Neuronas motoras','Músculos del brazo','Sacás la mano']}
+];
+let sc=0, placed=[];
+const shuffle=a=>{a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+let order=[];
+function loadSc(i){sc=i;placed=[];order=shuffle(SC[i].p.map((_,k)=>k));document.getElementById('sc-msg').textContent='';renderSc();
+  document.querySelectorAll('#scenarios button').forEach((b,k)=>b.setAttribute('aria-pressed',k===i))}
+function renderSc(checked){
+  document.getElementById('sc-desc').textContent=SC[sc].d;
+  const slots=document.getElementById('slots');slots.innerHTML='';
+  ROLES.forEach((r,k)=>{const s=document.createElement('div');s.className='slot';s.tabIndex=0;s.setAttribute('role','button');
+    const v=placed[k];s.innerHTML=`<b>${r}</b><span>${v===undefined?'':SC[sc].p[v]}</span>`;
+    if(v!==undefined){s.classList.add('filled');if(checked)s.classList.add(v===k?'right':'wrong')}
+    const rm=()=>{if(placed[k]!==undefined){placed.splice(k,1);renderSc()}};
+    s.onclick=rm;s.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();rm()}};slots.appendChild(s)});
+  const pc=document.getElementById('pieces');pc.innerHTML='';
+  order.filter(k=>!placed.includes(k)).forEach(k=>{const b=document.createElement('button');b.className='piece';b.textContent=SC[sc].p[k];
+    b.onclick=()=>{placed.push(k);document.getElementById('sc-msg').textContent='';renderSc()};pc.appendChild(b)});
+}
+const scWrap=document.getElementById('scenarios');
+SC.forEach((s,i)=>{const b=document.createElement('button');b.className='btn';b.textContent=s.n;b.onclick=()=>loadSc(i);scWrap.appendChild(b)});
+document.getElementById('sc-check').onclick=()=>{const ok=placed.filter((v,k)=>v===k).length;renderSc(true);
+  document.getElementById('sc-msg').textContent=placed.length<7?`Te faltan ${7-placed.length} piezas. Por ahora: ${ok} bien.`:ok===7?'¡Perfecto! El camino está completo. Ahora intentá escribirlo sin mirar.':`${ok} de 7 bien. Tocá las rojas para sacarlas y probá de nuevo.`};
+document.getElementById('sc-reset').onclick=()=>loadSc(sc);
+loadSc(0);
+
+/* ---------- tarjetas ---------- */
+let FC=[
+ ['Neurona','Célula del sistema nervioso que recibe, lleva y pasa mensajes (impulsos nerviosos).'],
+ ['Sinapsis','La comunicación entre dos neuronas (o una neurona y un músculo) a través de un espacio chiquito.'],
+ ['Neurotransmisor','Mensajero químico que una neurona suelta en la sinapsis para pasarle el mensaje a la otra.'],
+ ['Receptor','La "cerradura" en la neurona que recibe, donde se engancha el neurotransmisor (la "llave").'],
+ ['Espacio sináptico','El espacio entre las dos neuronas por donde cruzan los neurotransmisores.'],
+ ['Excitatorio','Que activa a la neurona siguiente. Es el acelerador. Ej: glutamato, cafeína.'],
+ ['Inhibitorio','Que frena a la neurona siguiente. Es el freno. Ej: adenosina, GABA, alcohol.'],
+ ['Adenosina','Neurotransmisor inhibitorio que se acumula en el día y da sueño. La cafeína lo bloquea.'],
+ ['Glutamato','Neurotransmisor excitatorio, importante para la coordinación y los reflejos. El alcohol lo bloquea.'],
+ ['Vía aferente (sensitiva)','Neuronas que llevan la información desde el sensor hacia el centro de control.'],
+ ['Vía eferente (motora)','Neuronas que llevan la orden desde el centro de control hacia el efector.'],
+ ['Efector','El músculo o la glándula que realiza la respuesta.'],
+ ['SN somático','Controla lo voluntario: los movimientos que decidís hacer (correr, gritar).'],
+ ['SN autónomo','Controla lo involuntario: corazón, respiración, digestión, sudor.'],
+ ['Simpático','Parte del autónomo para "alerta o peligro": acelera el corazón y la respiración.'],
+ ['Parasimpático','Parte del autónomo para "descanso": baja el ritmo y activa la digestión.'],
+ ['Hormona','Mensajero químico que fabrica una glándula y viaja por la sangre.'],
+ ['Glándula','Órgano que fabrica una hormona y la libera a la sangre.'],
+ ['Órgano blanco','Órgano que tiene receptores para una hormona y por eso responde a ella.'],
+ ['Suprarrenales','Glándulas arriba de los riñones que fabrican la adrenalina.'],
+ ['Hipotálamo','Parte del cerebro que es el centro de control del sistema endócrino. Une los dos sistemas.'],
+ ['Hipófisis','Glándula chiquita debajo del cerebro que, junto al hipotálamo, controla otras glándulas.'],
+ ['Insulina','Hormona del páncreas que baja la glucosa en sangre: le dice al hígado que la guarde.'],
+ ['Glucagón','Hormona del páncreas que sube la glucosa: le dice al hígado que la suelte.'],
+ ['Retroalimentación negativa','Cuando se logra el efecto, se frena la producción de la hormona. Mantiene el equilibrio.'],
+ ['Homeostasis','El equilibrio del cuerpo: mantener todo (temperatura, glucosa, latidos) en valores normales.']
+];
+let fi=0, flipped=false;
+const flash=document.getElementById('flash');
+function renderFc(){const [t,d]=FC[fi];flash.classList.toggle('back',flipped);
+  flash.innerHTML=flipped?`<span class="eyebrow">${t}</span><span class="def">${d}</span>`:`<span class="term">${t}</span><span class="hint">Tocá para ver qué significa</span>`;
+  document.getElementById('fc-count').textContent=`${fi+1} / ${FC.length}`}
+flash.onclick=()=>{flipped=!flipped;renderFc()};
+document.getElementById('fc-next').onclick=()=>{fi=(fi+1)%FC.length;flipped=false;renderFc()};
+document.getElementById('fc-prev').onclick=()=>{fi=(fi-1+FC.length)%FC.length;flipped=false;renderFc()};
+document.getElementById('fc-shuffle').onclick=()=>{FC=shuffle(FC);fi=0;flipped=false;renderFc()};
+renderFc();
+
+/* ---------- quiz ---------- */
+const QZ=[
+ ['¿Qué es la sinapsis?',['Un tipo de neurona','La comunicación entre dos neuronas','Una hormona del cerebro','Un músculo'],1,'La sinapsis es la comunicación entre neuronas a través del espacio sináptico.'],
+ ['¿Dónde se enganchan los neurotransmisores?',['En los receptores de la neurona que recibe','En la sangre','En el axón de la misma neurona','En las glándulas'],0,'Se unen a los receptores, como una llave en una cerradura.'],
+ ['La cafeína bloquea los receptores de...',['Glutamato','Insulina','Adenosina','Adrenalina'],2,'La cafeína se parece a la adenosina y le ocupa los receptores.'],
+ ['La cafeína es una sustancia...',['Inhibitoria, porque da sueño','Excitatoria, porque no deja actuar al freno (adenosina)','Inhibitoria, porque bloquea receptores','Una hormona'],1,'Bloquear un neurotransmisor inhibitorio da un efecto excitatorio.'],
+ ['El alcohol se pega a los receptores de...',['Adenosina','Glutamato','Insulina','Glucosa'],1,'El alcohol se adhiere a los receptores del glutamato, que es excitatorio.'],
+ ['¿Por qué el alcohol es inhibitorio?',['Porque acelera las neuronas','Porque bloquea al glutamato, que es excitatorio','Porque es una hormona','Porque aumenta la adenosina'],1,'Si bloqueás el acelerador, todo va más lento.'],
+ ['La vía aferente (sensitiva) lleva el mensaje...',['Del centro de control al músculo','Del sensor al centro de control','De la glándula a la sangre','Del músculo al sensor'],1,'Aferente = hacia el centro de control (Adentro/Arriba).'],
+ ['En el ejemplo del gol, ¿cuál es el sensor?',['El cerebro','Los músculos','Los ojos','El corazón'],2,'Lucio ve el gol: el sensor son los ojos.'],
+ ['En un acto reflejo (olla caliente) el centro de control es...',['El cerebro','La médula espinal','El corazón','La hipófisis'],1,'Los reflejos pasan por la médula espinal; por eso son tan rápidos.'],
+ ['¿Cuál de estas acciones es del SN autónomo?',['Gritar "¡gol!"','Agarrar la taza','El corazón se acelera','Correr hacia la salida'],2,'El latido del corazón es involuntario.'],
+ ['¿Cuál de estas acciones es del SN somático?',['Transpirar','Digerir la torta','Salir corriendo','Que se dilaten las pupilas'],2,'Correr es voluntario: usás los músculos del esqueleto porque querés.'],
+ ['En el ejemplo, la adrenalina es una hormona porque...',['La fabrica una neurona','Viaja por la sangre desde una glándula','Se queda en la sinapsis','La fabrica el corazón'],1,'Las hormonas salen de glándulas y viajan por la sangre.'],
+ ['¿Qué glándula fabrica la adrenalina?',['Páncreas','Hipófisis','Suprarrenales','Tiroides'],2,'Las suprarrenales, arriba de los riñones.'],
+ ['El órgano blanco de la adrenalina en el ejemplo es...',['El corazón','El páncreas','El estómago','La médula espinal'],0,'El corazón tiene receptores para la adrenalina y late más rápido.'],
+ ['La producción de adrenalina tiene retroalimentación...',['Positiva','Negativa','No tiene','Excitatoria'],1,'Cuando pasa la emoción, se frena la producción y todo vuelve a lo normal.'],
+ ['¿Qué glándula libera insulina?',['Hígado','Páncreas','Suprarrenales','Riñón'],1,'El páncreas; el hígado es el órgano blanco.'],
+ ['Comparada con la nerviosa, la comunicación endócrina es...',['Más rápida y corta','Más lenta y dura más','Igual de rápida','Solo por neuronas'],1,'Las hormonas viajan por la sangre: tardan más pero su efecto dura más.'],
+ ['El centro de control del sistema endócrino es...',['El hipotálamo (con la hipófisis)','El corazón','La médula espinal','Los ojos'],0,'El hipotálamo controla, junto a la hipófisis, a las demás glándulas.']
+];
+let qzAns=store.get('rn-quiz',{});
+function renderQz(){
+  const box=document.getElementById('qz');box.innerHTML='';
+  QZ.forEach(([q,opts,ok,ex],i)=>{const w=document.createElement('div');w.className='mc';
+    w.innerHTML=`<p><b>${i+1}. ${q}</b></p>`;const pick=qzAns[i];
+    opts.forEach((o,j)=>{const b=document.createElement('button');b.className='opt';b.textContent=o;
+      if(pick!==undefined){b.disabled=true;if(j===ok)b.classList.add('right');else if(j===pick)b.classList.add('wrong')}
+      b.onclick=()=>{qzAns[i]=j;store.set('rn-quiz',qzAns);renderQz()};w.appendChild(b)});
+    if(pick!==undefined){const p=document.createElement('p');p.className='explain';p.textContent=(pick===ok?'✓ Bien. ':'✗ No. ')+ex;w.appendChild(p)}
+    box.appendChild(w)});
+  const n=Object.keys(qzAns).length, good=Object.entries(qzAns).filter(([i,j])=>QZ[i][2]===j).length;
+  document.getElementById('qz-score').textContent=n?`${good} de ${n} bien${n===QZ.length?` · ${good>=15?'¡Estás listo!':good>=11?'Vas bien, repasá las que fallaste.':'Volvé a leer la teoría y probá de nuevo.'}`:''}`:`${QZ.length} preguntas`;
+}
+document.getElementById('qz-reset').onclick=()=>{qzAns={};store.set('rn-quiz',qzAns);renderQz()};
+renderQz();
+</script>
+</body>
+</html>
