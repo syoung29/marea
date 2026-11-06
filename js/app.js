@@ -902,10 +902,12 @@ function avanzarOnb() {
 
 /* ================= MODALES ================= */
 function openModal(html) {
-  $('#modalRoot').innerHTML = `<div class="overlay" data-act="cerrarModal"><div class="modal-wrap"><div class="kilo-modal">${kilo()}</div><div class="modal" role="dialog" aria-modal="true">${html}</div></div></div>`;
-  const f = $('#modalRoot input:not([type=hidden]),#modalRoot select,#modalRoot textarea,#modalRoot .modal button'); if (f) f.focus();
+  $('#modalRoot').innerHTML = `<div class="overlay" data-act="cerrarModal"><div class="modal-wrap"><div class="kilo-modal">${kilo()}</div><div class="modal" role="dialog" aria-modal="true" tabindex="-1">${html}</div></div></div>`;
+  document.documentElement.classList.add('modal-abierto');
+  // El foco va a la ventana (no a un campo) para que en el teléfono no se abra el teclado ni salte la pantalla
+  $('#modalRoot .modal').focus({ preventScroll: true });
 }
-const closeModal = () => { $('#modalRoot').innerHTML = ''; };
+const closeModal = () => { $('#modalRoot').innerHTML = ''; document.documentElement.classList.remove('modal-abierto'); };
 function modalPerfil() {
   const p = state.perfil;
   openModal(`<h2 style="font-size:20px">Editar mis datos</h2>
