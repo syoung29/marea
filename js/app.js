@@ -175,7 +175,8 @@ function render() {
   const cy = activo(), plan = planDe(cy), { raw, c } = semanaActual(cy, plan);
   if (ui.wk == null || ui.wk >= plan.weeks.length) ui.wk = c;
   const html = { semana: renderSemana, progreso: renderProgreso, plan: renderPlan, rutina: renderRutina, dev: renderDev }[ui.tab](plan, cy, raw, c);
-  $('#main').innerHTML = (state.ejemplo ? `<div class="banner"><span><b>Estás viendo un ejemplo</b> con entrenamientos ya cargados.</span><button class="btn small primary" data-act="onb">Crear mi plan</button></div>` : '') + html;
+  $('#main').innerHTML = (ui.versionNueva ? `<div class="banner rec"><span><b>Hay una versión nueva de Marea.</b> Actualizá cuando termines lo que estás cargando.</span><button class="btn small primary" data-act="actualizarApp">Actualizar</button></div>` : '')
+    + (state.ejemplo ? `<div class="banner"><span><b>Estás viendo un ejemplo</b> con entrenamientos ya cargados.</span><button class="btn small primary" data-act="onb">Crear mi plan</button></div>` : '') + html;
   setSave();
   const w = plan.weeks[c];
   conectarKilo(state.ejemplo ? ['Esto es un ejemplo. Cuando quieras, armamos el tuyo.'] : TIPS[w.tipo]);
@@ -921,6 +922,7 @@ document.addEventListener('click', e => {
   if (a === 'coach') return modalCoach();
   if (a === 'nuevoEj') return modalNuevoEj();
   if (a === 'exportar') return exportar();
+  if (a === 'actualizarApp') { location.reload(); return; }
   // Modo desarrollador
   if (a === 'devToggle') { dev = !dev; lsSet(LS_DEV, dev ? '1' : '0'); ui.tab = dev ? 'dev' : 'plan'; render(); scrollTo(0, 0); return; }
   if (a === 'perfilUsar') return usarPerfil(el.dataset.id);
@@ -1073,4 +1075,17 @@ try { const s = lsGet(claveDe(perfilId)); if (s) { state = migrar(JSON.parse(s))
 iniciarMascotas();
 render();
 setTimeout(() => vueltaDisco(), 2500);
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).catch(() => {});
+// Actualización automática. En el iPhone, la app instalada queda abierta en segundo plano y no recarga sola:
+// cada vez que volvés a ella se busca una versión nueva; cuando se activa, se recarga, salvo que estés
+// cargando un entrenamiento o con una ventana abierta (ahí aparece un aviso para que actualices al terminar).
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  const habiaVersion = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register(new URL('../sw.js', import.meta.url)).then(reg => {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!habiaVersion || ui.versionNueva) return;
+    if (ui.open || $('#modalRoot').innerHTML || ui.view === 'onb') { ui.versionNueva = true; render(); }
+    else location.reload();
+  });
+}
