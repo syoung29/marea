@@ -58,13 +58,17 @@ export function nivel(p, objetivos) {
   return { n, por };
 }
 // Semanas de carga antes de cada descarga: menos cuanto más avanzado o peor recuperación
-export function semanasCarga(n, rec) { let L = [5, 4, 3][n]; if (rec >= 4) L++; if (rec <= 2) L--; return Math.max(2, Math.min(6, L)); }
+// Otro deporte 3 o más días por semana suma fatiga: bloques de carga una semana más cortos
+export function semanasCarga(n, rec, deporteDias = 0) { let L = [5, 4, 3][n]; if (rec >= 4) L++; if (rec <= 2) L--; if (deporteDias >= 3) L--; return Math.max(2, Math.min(6, L)); }
+// Deportes que ya tienen muchos saltos y sprints: menos pliometría en el gimnasio
+const DEPORTE_SALTA = new Set(['equipo', 'salto']);
 
 function semana(tipo, f, fi, bi, i, t, bump, n, p) {
   const lerp = (a, b) => a + (b - a) * t, ilo = f.int[0] + bump, ihi = f.int[1] + bump;
   let vol = f.vol * lerp(f.vt[0], f.vt[1]), int = Math.min(97, lerp(ilo, ihi)), reps = Math.round(lerp(f.reps[0], f.reps[1])), rpe = lerp(f.rpe[0], f.rpe[1]);
   const tope = [80, 100, 120][n];
-  let plyo = f.plyo && p.enfoque !== 'hipertrofia' ? { c: Math.round(tope * PLYO_IF[f.plyo.i] * f.plyo.f / 5) * 5, i: f.plyo.i } : null;
+  const pr = p.prefs || {}, plioDeporte = DEPORTE_SALTA.has(pr.deporte) && pr.deporteDias >= 2 ? .7 : 1;
+  let plyo = f.plyo && p.enfoque !== 'hipertrofia' ? { c: Math.round(tope * PLYO_IF[f.plyo.i] * f.plyo.f * plioDeporte / 5) * 5, i: f.plyo.i } : null;
   if (tipo === 'descarga') { vol = f.vol * .5; int = Math.max(55, ilo - 7); reps = Math.round((f.reps[0] + f.reps[1]) / 2); rpe = 6; if (plyo) plyo = { c: Math.round(tope * .4 / 5) * 5, i: 'baja' }; }
   if (tipo === 'test') { vol = f.vol * .4; int = 97; reps = 1; rpe = 9.5; if (plyo) plyo = { c: 30, i: 'test' }; }
   const sets = tipo === 'descarga' ? 2 : tipo === 'test' ? 1 : vol >= .9 ? 4 : 3;
@@ -79,7 +83,7 @@ export function elegirComp(p, inicio) {
 }
 
 export function generar(cy, ciclos = []) {
-  const p = cy.snap.perfil, nv = nivel(p, cy.snap.objetivos), L = p.carga || semanasCarga(nv.n, p.recuperacion), fases = FASES[p.enfoque], F = fases.length;
+  const p = cy.snap.perfil, nv = nivel(p, cy.snap.objetivos), L = p.carga || semanasCarga(nv.n, p.recuperacion, (p.prefs || {}).deporteDias || 0), fases = FASES[p.enfoque], F = fases.length;
   const cnt = fases.map(() => 0); let loads, Lb = L, aviso = null;
   const reparto = (M, desde) => {
     for (let i = desde; i < F; i++) cnt[i] = 1;
@@ -223,9 +227,11 @@ function factorRPE(t, o, en, w) {
 }
 // 1RM que implica lo registrado según el mismo modelo del plan: hacer justo lo planeado = tu 1RM actual.
 // Así una serie submáxima a RPE 7 no aparece como "bajaste". Las descargas no cuentan.
+// Las variantes con fracción conocida (frontal, rumano, inclinado…) devuelven el 1RM equivalente de su básico.
 export function rmImplicito(plan, wi, en) {
-  const d = ejDe(en.e); if (!d.base || (d.t !== 'carga' && d.t !== 'lastre')) return 0;
-  const w = plan.weeks[wi]; if (!w || w.tipo === 'descarga') return 0;
+  const d = ejDe(en.e); if (!(d.base || d.rel) || (d.t !== 'carga' && d.t !== 'lastre')) return 0;
+  const w = plan.weeks[wi]; if (!w || w.tipo === 'descarga' || (w.tipo === 'test' && !d.base)) return 0;
+  const baseK = d.base ? d.id : d.rel[0];
   const P = plan.p.peso || 0, t = mejorSerie(en, P); if (!t || !(total(d, t.kg, P) > 0)) return 0;
   let tot;
   if (w.tipo === 'test') tot = t.reps === 1 ? total(d, t.kg, P) : t.v;
@@ -233,7 +239,7 @@ export function rmImplicito(plan, wi, en) {
     const o = objetivoEj(plan, w, en.e, 1, en.esq); if (!o.pct) return 0;
     // Con 1RM conocido se compara contra los kilos sugeridos ya redondeados: hacer lo planeado = mismo 1RM, sin falsos -1%
     const f = factorRPE(t, o, en, w);
-    if (o.conRM) tot = total(d, plan.p.rm[en.e], P) * t.v / e1(total(d, o.kg, P), o.reps) * f;
+    if (o.conRM) tot = total(d, plan.p.rm[baseK], P) * t.v / e1(total(d, o.kg, P), o.reps) * f;
     else tot = t.v / (o.pct * (1 + o.reps / 30)) * f;
   }
   return d.t === 'lastre' ? tot - P : tot;
@@ -278,9 +284,19 @@ export function records(plan, cy) {
   recorrer(cy, (wi, lg) => { for (const id in lg.ej) { const en = lg.ej[id], v = rmImplicito(plan, wi, en); if (v > (best[en.e] || 0)) best[en.e] = v; } });
   return Object.keys(best).map(k => ({ k, v: r25(best[k]) })).filter(r => r.v > 0 && MARCAS.includes(r.k) && (!(plan.p.rm[r.k] > 0) || r.v >= plan.p.rm[r.k] + 2.5));
 }
+// Puntos de progreso de un básico: sus propias series y, como equivalentes (eq), las de sus variantes.
+// Así, si cambiás la sentadilla por la frontal, el gráfico de sentadilla sigue.
 export function puntosLift(plan, cy, k) {
   const pts = [];
-  recorrer(cy, (wi, lg, j, n) => { let best = 0; for (const id in lg.ej) { const en = lg.ej[id]; if (en.e === k) best = Math.max(best, rmImplicito(plan, wi, en)); } if (best > 0) pts.push({ x: wi + (j + .5) / n, v: best }); });
+  recorrer(cy, (wi, lg, j, n) => {
+    let best = 0, eq = false;
+    for (const id in lg.ej) {
+      const en = lg.ej[id], d = ejDe(en.e), propio = en.e === k;
+      if (!propio && !(d.rel && d.rel[0] === k)) continue;
+      const v = rmImplicito(plan, wi, en); if (v > best) { best = v; eq = !propio; }
+    }
+    if (best > 0) pts.push({ x: wi + (j + .5) / n, v: best, eq });
+  });
   return pts;
 }
 export function puntosSalto(cy, k) {

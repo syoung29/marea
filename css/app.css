@@ -308,3 +308,5 @@ svg .sel{fill:none;stroke:var(--accent);stroke-width:2}
 @media (max-width:640px){.dev-row.propio{grid-template-columns:1fr 1fr}.dev-row.propio>:first-child{grid-column:1/-1}}
 .set.set-lanz{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
 .set.set-lanz .in{width:72px}
+.pchart .eq-d{fill:var(--surface);stroke:var(--load);stroke-width:2}
+.leyenda-eq{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid var(--load)}

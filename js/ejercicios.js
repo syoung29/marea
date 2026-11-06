@@ -89,6 +89,31 @@ export const EJERCICIOS = [
   { id: 'elev_piernas', n: 'Elevación de piernas colgado', g: 'core', p: 'flexion-tronco', t: 'lastre' },
   { id: 'pallof', n: 'Pallof press', g: 'core', p: 'rotacion', t: 'carga' }
 ];
+
+// Equipo: con qué se puede hacer cada ejercicio (alcanza con tener uno de la lista; «nada» = peso corporal)
+export const EQUIPO = {
+  barra: 'Barra y discos', mancuernas: 'Mancuernas', maquina: 'Máquinas', polea: 'Poleas', kettlebell: 'Kettlebell',
+  barra_fija: 'Barra de dominadas / paralelas', cajon: 'Cajón o vallas', balon: 'Balón medicinal', landmine: 'Landmine (barra en esquina)', trineo: 'Trineo'
+};
+const EQ = {
+  sentadilla: ['barra'], sentadilla_frontal: ['barra'], bulgara: ['mancuernas', 'barra', 'nada'], zancadas: ['mancuernas', 'barra', 'nada'], step_up: ['mancuernas'],
+  prensa: ['maquina'], hack: ['maquina'], goblet: ['mancuernas', 'kettlebell'], ext_cuadriceps: ['maquina'], gemelos: ['maquina', 'mancuernas', 'nada'],
+  muerto: ['barra'], rumano: ['barra', 'mancuernas'], sumo: ['barra'], good_morning: ['barra'], hip_thrust: ['barra', 'maquina'], espinales: ['maquina'],
+  curl_isquios: ['maquina'], nordico: ['nada'],
+  banca: ['barra'], inclinado: ['barra'], press_mancuernas: ['mancuernas'], inclinado_mancuernas: ['mancuernas'], fondos: ['barra_fija'], flexiones: ['nada'],
+  militar: ['barra'], press_hombro_mancuernas: ['mancuernas'], laterales: ['mancuernas', 'polea'], aperturas: ['maquina', 'mancuernas', 'polea'], triceps: ['polea', 'mancuernas'],
+  dominadas: ['barra_fija'], jalon: ['polea'], pullover: ['mancuernas', 'polea'], remo_barra: ['barra'], remo_mancuerna: ['mancuernas'], remo_polea: ['polea'],
+  face_pull: ['polea'], biceps: ['mancuernas', 'barra', 'polea'],
+  cargada: ['barra'], cargada_colgante: ['barra'], arranque: ['barra'], arranque_colgante: ['barra'], envion: ['barra'], push_press: ['barra'],
+  salto_cajon: ['cajon'], drop_jump: ['cajon'], vallas: ['cajon'],
+  lanz_vertical: ['balon'], lanz_horizontal: ['balon'], lanz_rotacional: ['balon'], slam: ['balon'],
+  landmine_press: ['landmine'], landmine_rotacion: ['landmine'], landmine_sentadilla: ['landmine'], zercher: ['barra'], kb_swing: ['kettlebell'],
+  peso_muerto_una_pierna: ['mancuernas', 'kettlebell'], get_up: ['kettlebell', 'mancuernas'], paseo_granjero: ['mancuernas', 'kettlebell'], trineo: ['trineo'],
+  lenador: ['polea'], elev_piernas: ['barra_fija'], pallof: ['polea']
+};
+EJERCICIOS.forEach(e => { e.eq = EQ[e.id] || ['nada']; });
+// ¿Se puede hacer con este equipo? (los ejercicios propios se asumen posibles)
+export const disponible = (d, equipo) => !equipo || !d.eq || d.eq.some(x => x === 'nada' || equipo.includes(x));
 const EJ = Object.fromEntries(EJERCICIOS.map(e => [e.id, e]));
 
 // Ejercicios creados por la persona (se guardan en su estado)

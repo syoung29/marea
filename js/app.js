@@ -1,6 +1,6 @@
 // Marea: interfaz. Estado, pantallas, primeros pasos, modales y eventos.
 import { $, $$, esc, r25, clone, iso, parse, lunes, addD, fd, fmt, nid } from './util.js';
-import { GRUPOS, TIPOS, MARCAS, SALTOS, EXTRA_GRUPO, ejDe, todos, registrarPropios, alternativas } from './ejercicios.js';
+import { GRUPOS, TIPOS, MARCAS, SALTOS, EXTRA_GRUPO, ejDe, todos, registrarPropios, alternativas, EQUIPO, disponible } from './ejercicios.js';
 import {
   ENFOQUES, NIVEL, generar, elegirComp, proyeccion, veredicto, objetivoEj, rpeTxt, rendimientoSemana, veredictoSemana,
   sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie, proyeccionAjustada, ajustesBaja, rol, ROLES, revisarRutina
@@ -53,52 +53,121 @@ const SPLITS = {
 };
 // Rutina sugerida: reglas de programación aplicadas a tus datos (ver docs/metodologia.md)
 const ORDEN_ROL = { potencia: 0, olimpico: 1, principal: 2, secundario: 3, accesorio: 4, core: 5 };
-const MAX_EJ = 7; // más de 7 ejercicios por sesión suele bajar la calidad de los últimos
-function rutinaBase(p, objetivos = []) {
+// Lo que se pregunta para armar la rutina (paso «Tu rutina» y «Cambiar respuestas»)
+const ENCARES = {
+  basicos: ['Pocos ejercicios, pesados', 'Los básicos y poco más. Sesiones cortas y concentradas.'],
+  equilibrado: ['Equilibrada', 'Básicos, secundarios y algunos accesorios.'],
+  variado: ['Variada', 'Más ejercicios distintos y más trabajo accesorio.']
+};
+const GUSTOS = { barra: 'Básicos con barra', saltos: 'Saltos y pliometría', olimpicos: 'Olímpicos', mancuernas: 'Mancuernas y unilaterales', maquinas: 'Máquinas y poleas', funcional: 'Funcionales (kettlebell, landmine, trineo)' };
+const DEPORTES = { ninguno: 'No hago otro deporte', equipo: 'De equipo (fútbol, rugby, básquet, hockey…)', raqueta: 'Raqueta (tenis, pádel…)', combate: 'Combate', resistencia: 'Resistencia (correr, ciclismo, natación)', salto: 'Saltos o velocidad (atletismo, vóley)' };
+const MOLESTIAS = { rodilla: 'Rodilla', hombro: 'Hombro', espalda: 'Espalda baja' };
+const DESCANSOS = { poco: ['Poco (1 min o menos)', 60], normal: ['Normal (unos 2 min)', 120], mucho: ['Mucho (3 min o más)', 180] };
+// Ejercicios que cargan una zona con molestias: se reemplazan por una alternativa del mismo estilo
+const EVITAR = {
+  rodilla: ['drop_jump', 'bounds', 'vallas', 'salto_una_pierna', 'zancadas', 'sentadilla_frontal', 'step_up'],
+  hombro: ['militar', 'push_press', 'fondos', 'envion', 'arranque', 'arranque_colgante', 'inclinado'],
+  espalda: ['good_morning', 'remo_barra', 'sumo', 'slam', 'zercher', 'espinales']
+};
+const prefsDe = p => ({ encare: 'equilibrado', gustos: [], equipo: Object.keys(EQUIPO), duracion: 60, descanso: 'normal', deporte: 'ninguno', deporteDias: 0, molestias: [], ...(p.prefs || {}) });
+
+// Arma la rutina sugerida con reglas de programación y tus respuestas. Devuelve la rutina y el porqué de cada decisión.
+function armarRutina(p, objetivos = []) {
+  const pr = prefsDe(p), razones = [];
   const pot = p.enfoque === 'potencia' || p.enfoque === 'mixto', hip = p.enfoque === 'hipertrofia', item = e => ({ id: nid('i'), e });
-  const tiene = k => p.rm[k] > 0 || !!(p.nose || {})[k];
+  const tiene = k => p.rm[k] > 0 || !!(p.nose || {})[k], gusta = g => pr.gustos.includes(g);
+  const deporteSalta = (pr.deporte === 'equipo' || pr.deporte === 'salto') && pr.deporteDias >= 2;
   const r = (SPLITS[p.dias] || SPLITS[4]).map(([nombre, ejs, pierna]) => ({ id: nid('s'), nombre, pierna: !!pierna, items: ejs.map(item) }));
   const piernas = r.filter(s => s.pierna), torsos = r.filter(s => !s.pierna);
-  const metas = new Set(objetivos.filter(o => o.tipo === 'ej').map(o => o.clave));
+  const metas = new Set(objetivos.filter(o => o.tipo === 'ej').map(o => o.clave)), fijos = new Set();
   const poner = (s, e) => { if (s && !s.items.some(i => i.e === e)) s.items.push(item(e)); };
-  // 1. Pliometría en días de pierna, separando salto vertical y horizontal entre días (más de 48 h entre sesiones intensas)
-  if (!hip && piernas.length) {
-    const plio = pot ? [['cmj', 'lanz_vertical'], ['largo', 'salto_una_pierna']] : [['salto_cajon'], ['largo']];
+  razones.push(`${p.dias} días: ${p.dias <= 3 ? 'cuerpo completo, así cada básico se entrena más de una vez por semana' : p.dias === 4 ? 'torso y pierna alternados, dos veces cada uno' : 'empuje, tirón y pierna'}.`);
+
+  // 1. Pliometría al principio de los días de pierna; vertical y horizontal en días distintos
+  if (!hip && piernas.length && (pot || gusta('saltos') || p.enfoque === 'fuerza')) {
+    let plio = pot ? [['cmj', 'lanz_vertical'], ['largo', 'salto_una_pierna']] : [['salto_cajon'], ['largo']];
+    if (deporteSalta) { plio = plio.map(l => l.slice(0, 1)); razones.push(`Ya saltás y corrés ${pr.deporteDias} días en tu deporte: un solo salto por día de pierna y menos contactos.`); }
+    if (pr.molestias.includes('rodilla')) { plio = plio.map(l => l.map(e => e === 'salto_una_pierna' ? 'salto_cajon' : e)); razones.push('Por la rodilla: saltos al cajón (caés más bajo) en vez de saltos a una pierna o reactivos.'); }
     piernas.forEach((s, i) => plio[i % 2].forEach(e => poner(s, e)));
-    // Potencia de tren superior: un lanzamiento en el primer día de torso
-    if (pot && torsos.length) poner(torsos[0], 'lanz_horizontal');
+    if (pot && torsos.length) poner(torsos[0], pr.deporte === 'raqueta' || pr.deporte === 'combate' ? 'lanz_rotacional' : 'lanz_horizontal');
+    razones.push('Saltos y lanzamientos al principio de la sesión: piden el sistema nervioso fresco.');
   }
-  // 2. Olímpicos (solo si los hacés o marcaste «No sé»)
-  if (pot && piernas.length) {
-    if (tiene('cargada')) poner(piernas[0], 'cargada');
+  // 2. Olímpicos: si los hacés, si marcaste «No sé» o si te gustan
+  if ((pot || gusta('olimpicos')) && piernas.length) {
+    if (tiene('cargada')) poner(piernas[0], 'cargada'); else if (gusta('olimpicos')) poner(piernas[0], 'cargada_colgante');
     if (tiene('arranque')) poner(piernas[1] || piernas[0], 'arranque');
   }
-  // 3. Prevención de lesiones según el enfoque
-  if (pot) { poner(piernas[0] || r[0], 'nordico'); poner(piernas[1] || piernas[0] || r[0], 'copenhague'); }
-  if (!hip) poner(torsos[torsos.length - 1] || r[r.length - 1], 'face_pull');
-  if (hip) {
-    torsos.forEach((s, i) => poner(s, ['laterales', 'triceps', 'biceps', 'aperturas'][i % 4]));
-    piernas.forEach(s => poner(s, 'ext_cuadriceps'));
-  }
-  // 4. Lo que querés mejorar: un ejercicio más del grupo, y los ejercicios puntuales que elegiste
+  // 3. Prevención de lesiones según enfoque y deporte
+  // Lo que se suma por prevención o por gusto queda marcado: el porqué se arma al final, con lo que realmente entró
+  const sumar = (s, e, por) => { if (s && !s.items.some(i => i.e === e)) { const it = item(e); it.por = por; s.items.push(it); } };
+  if (pot || pr.deporte === 'equipo' || pr.deporte === 'salto') { sumar(piernas[0] || r[0], 'nordico', 'prevencion'); sumar(piernas[1] || piernas[0] || r[0], 'copenhague', 'prevencion'); ['nordico', 'copenhague'].forEach(e => fijos.add(e)); }
+  if (!hip || ['raqueta', 'combate', 'resistencia'].includes(pr.deporte)) sumar(torsos[torsos.length - 1] || r[r.length - 1], 'face_pull', 'prevencion');
+  if (pr.deporte === 'resistencia') sumar(piernas[0] || r[0], 'gemelos', 'prevencion');
+  if (pr.deporte === 'raqueta' || pr.deporte === 'combate') sumar(torsos[0] || r[0], 'pallof', 'prevencion');
+  if (pr.molestias.includes('hombro')) { sumar(torsos[torsos.length - 1] || r[r.length - 1], 'face_pull', 'prevencion'); fijos.add('face_pull'); }
+  if (hip) { torsos.forEach((s, i) => sumar(s, ['laterales', 'triceps', 'biceps', 'aperturas'][i % 4], 'hipertrofia')); piernas.forEach(s => sumar(s, 'ext_cuadriceps', 'hipertrofia')); }
+  // 4. Lo que te gusta hacer
+  if (gusta('funcional')) { sumar(piernas[0] || r[0], 'kb_swing', 'gusto'); sumar(torsos[0] || r[0], 'landmine_press', 'gusto'); }
+  if (gusta('mancuernas')) sumar(piernas[piernas.length - 1] || r[0], 'bulgara', 'gusto');
+  if (gusta('maquinas')) sumar(piernas[0] || r[0], 'prensa', 'gusto');
+  // 5. Lo que querés mejorar
   const menosCargada = () => [...r].sort((a, b) => a.items.length - b.items.length)[0];
   objetivos.filter(o => o.tipo === 'grupo').forEach(o => {
     const e = EXTRA_GRUPO[o.grupo]; if (!e || r.some(s => s.items.some(i => i.e === e))) return;
     (r.find(s => s.items.some(i => ejDe(i.e).g === o.grupo)) || menosCargada()).items.push(item(e));
-    metas.add(e);
+    metas.add(e); razones.push(`Querés mejorar ${(GRUPOS[o.grupo] || o.grupo).toLowerCase()}: sumé ${corto(e).toLowerCase()}.`);
   });
   objetivos.filter(o => o.tipo === 'ej').forEach(o => { if (!r.some(s => s.items.some(i => i.e === o.clave))) menosCargada().items.push(item(o.clave)); });
-  // 5. Orden por función y tope de ejercicios: si sobra, salen primero accesorios y core que no sean objetivos
+  // 6. Equipo y molestias: lo que no podés hacer se cambia por algo del mismo estilo (preferí lo que te gusta)
+  const evitar = new Set(pr.molestias.flatMap(m => EVITAR[m] || []));
+  const apto = e => disponible(ejDe(e), pr.equipo) && !evitar.has(e);
+  const gustoDe = d => (gusta('barra') && d.eq.includes('barra') ? 1 : 0) + (gusta('mancuernas') && (d.eq.includes('mancuernas') || /unilateral/.test(d.p || '')) ? 1 : 0)
+    + (gusta('maquinas') && (d.eq.includes('maquina') || d.eq.includes('polea')) ? 1 : 0) + (gusta('funcional') && d.g === 'funcional' ? 1 : 0) + (gusta('olimpicos') && d.g === 'olimpicos' ? 1 : 0);
+  const cambios = [];
+  r.forEach(s => {
+    // Lo que ya quedó en la sesión (aptos y reemplazos ya elegidos), para no repetir un ejercicio en el mismo día
+    const usados = new Set(s.items.filter(it => apto(it.e)).map(it => it.e));
+    s.items = s.items.map(it => {
+      if (apto(it.e)) return it;
+      // Primero algo del mismo estilo (otro press para un press) y recién después del mismo grupo; dentro de cada uno, lo que te gusta
+      const alt = alternativas(it.e), porGusto = l => l.filter(x => apto(x.id) && !usados.has(x.id)).sort((a, b) => gustoDe(b) - gustoDe(a));
+      // Lo sumado por gusto solo se reemplaza por algo del mismo estilo; si no hay, se saca
+      const cand = [...porGusto(alt.estilo), ...(it.por === 'gusto' ? [] : porGusto(alt.grupo))][0];
+      const motivo = evitar.has(it.e) ? 'molestia' : 'equipo';
+      if (cand) { usados.add(cand.id); cambios.push(`${corto(it.e)} → ${corto(cand.id)} (${motivo})`); }
+      else cambios.push(`${corto(it.e)}: sin reemplazo posible, lo saqué (${motivo})`);
+      return cand ? { ...it, e: cand.id } : null;
+    }).filter(Boolean);
+  });
+  if (cambios.length) razones.push(`Cambios por equipo o molestias: ${cambios.join('; ')}.`);
+  if (pr.molestias.length) razones.push('Si algo duele al entrenar, frená y consultá: Marea no reemplaza a un profesional.');
+  // 7. Cuántos ejercicios entran: duración, descanso y cómo la querés encarar
+  const seriesQueEntran = Math.floor(pr.duracion * 60 / (40 + DESCANSOS[pr.descanso][1]));
+  let tope = Math.max(4, Math.min(8, Math.round(seriesQueEntran / 3.2)));
+  if (pr.encare === 'basicos') tope = Math.min(tope, 5); else if (pr.encare === 'variado') tope = Math.min(8, tope + 1);
+  razones.push(`Sesiones de ${pr.duracion} min descansando ${DESCANSOS[pr.descanso][0].toLowerCase()}: entran unas ${seriesQueEntran} series, así que hasta ${tope} ejercicios por día (${ENCARES[pr.encare][0].toLowerCase()}).`);
+  if (pr.deporteDias >= 3) razones.push(`Con ${pr.deporteDias} días de deporte, los bloques de carga son una semana más cortos para que descanses.`);
+  // 8. Orden por función y recorte: salen primero accesorios y core que no sean objetivo ni prevención; después secundarios
+  const afuera = [];
   r.forEach(s => {
     s.items.sort((a, b) => ORDEN_ROL[rol(ejDe(a.e))] - ORDEN_ROL[rol(ejDe(b.e))]);
-    for (let i = s.items.length - 1; s.items.length > MAX_EJ && i >= 0; i--) {
-      const ro = rol(ejDe(s.items[i].e));
-      if ((ro === 'accesorio' || ro === 'core') && !metas.has(s.items[i].e)) s.items.splice(i, 1);
-    }
+    [['accesorio', 'core'], ['secundario']].forEach(roles => {
+      for (let i = s.items.length - 1; s.items.length > tope && i >= 0; i--) {
+        const e = s.items[i].e; if (roles.includes(rol(ejDe(e))) && !metas.has(e) && !fijos.has(e)) afuera.push(...s.items.splice(i, 1));
+      }
+    });
     delete s.pierna;
   });
-  return r;
+  // El porqué de lo sumado, con lo que quedó en la rutina final
+  const quedaron = por => [...new Set(r.flatMap(s => s.items.filter(it => it.por === por).map(it => corto(it.e).toLowerCase())))];
+  if (quedaron('prevencion').length) razones.push(`Prevención de lesiones: ${quedaron('prevencion').join(', ')}${pot || pr.deporte !== 'ninguno' ? ' (isquios y aductores son los más castigados al saltar y esprintar)' : ''}.`);
+  if (quedaron('gusto').length) razones.push(`Por lo que te gusta hacer: ${quedaron('gusto').join(', ')}.`);
+  if (quedaron('hipertrofia').length) razones.push(`Hipertrofia: accesorios para sumar volumen a cada músculo (${quedaron('hipertrofia').join(', ')}).`);
+  if (afuera.length) razones.push(`Por tiempo quedaron afuera: ${[...new Set(afuera.map(it => corto(it.e).toLowerCase()))].join(', ')}. Si un día te sobra, sumalos.`);
+  r.forEach(s => s.items.forEach(it => delete it.por));
+  return { rutina: r, razones };
 }
+const rutinaBase = (p, objetivos = []) => armarRutina(p, objetivos).rutina;
 
 /* ================= ESTADO Y GUARDADO ================= */
 let state = null, saludado = false;
@@ -233,7 +302,7 @@ function renderSemana(plan, cy, raw, c) {
       ${futura && w.tipo !== 'test' && !state.ejemplo && (ov || w.tipo === 'carga') ? `<button class="btn small ghost" data-act="toggleDes" data-i="${wi}">${ov ? 'Volver a semana de carga' : 'Convertir en descarga'}</button>` : ''}
     </div>
   </section>
-  <div class="stack" style="gap:10px">${state.rutina.length ? state.rutina.map((s, i) => sesion(plan, cy, wi, s, i)).join('') : '<p class="note">No tenés entrenamientos en tu rutina. Agregalos en la pestaña Rutina.</p>'}</div>`;
+  <div class="stack" style="gap:10px">${state.rutina.length ? state.rutina.map((s, i) => sesion(plan, cy, wi, s, i)).join('') : '<p class="note">No tenés entrenamientos en tu rutina. Agregalos en la pestaña Rutina.</p>'}${deOtraRutina(plan, cy, wi)}</div>`;
 }
 // Hacia dónde vamos: proyección al cierre de lo que más importa, siempre a la vista
 function haciaDonde(plan, cy) {
@@ -360,7 +429,7 @@ function chartProg(o) {
   if (o.start > 0) s += `<circle class="start" cx="${X(0)}" cy="${Y(o.start)}" r="4"/>`;
   if (o.pts.length) {
     s += `<path class="real" d="${o.pts.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(1) + ' ' + Y(p.v).toFixed(1)).join(' ')}"/>`;
-    o.pts.forEach(p => { s += `<circle class="real-d" cx="${X(p.x)}" cy="${Y(p.v)}" r="3.5"><title>${fmt(Math.round(p.v * 2) / 2, o.unit)}</title></circle>`; });
+    o.pts.forEach(p => { s += `<circle class="${p.eq ? 'eq-d' : 'real-d'}" cx="${X(p.x)}" cy="${Y(p.v)}" r="3.5"><title>${fmt(Math.round(p.v * 2) / 2, o.unit)}${p.eq ? ' (equivalente de una variante)' : ''}</title></circle>`; });
     const last = o.pts[o.pts.length - 1]; s += `<text class="last-t" x="${X(last.x)}" y="${Y(last.v) - 10}" text-anchor="middle">${Math.round(last.v * 2) / 2}</text>`;
   }
   return s + '</svg>';
@@ -394,7 +463,7 @@ function renderProgreso(plan, cy) {
   return `<section class="card"><div class="kilo-edge">${kilo('', 'focus')}</div><div class="eyebrow">Progreso del ciclo ${state.ciclos.length}</div>
     <h2 style="font-size:20px;margin-top:4px">Cómo vas</h2>
     <p class="note" style="margin-top:6px">Cada punto es tu 1RM ${ay('rm')} estimado según tu mejor serie del entrenamiento. Si hacés justo lo planeado, queda igual; si levantás más, sube. La línea punteada es la proyección al cierre del ciclo.</p>
-    <div class="chart-legend" style="margin-top:10px"><span><b style="border-color:var(--load)"></b>Lo que levantaste</span><span><b style="border-color:var(--muted);border-top-style:dashed"></b>Proyección</span><span><b style="border-color:var(--accent);border-top-style:dotted"></b>Objetivo</span><span><b style="border-color:color-mix(in srgb,var(--deload) 40%,transparent);border-top-width:8px"></b>Descarga</span></div></section>
+    <div class="chart-legend" style="margin-top:10px"><span><b style="border-color:var(--load)"></b>Lo que levantaste</span><span><i class="leyenda-eq"></i>Con una variante (equivalente)</span><span><b style="border-color:var(--muted);border-top-style:dashed"></b>Proyección</span><span><b style="border-color:var(--accent);border-top-style:dotted"></b>Objetivo</span><span><b style="border-color:color-mix(in srgb,var(--deload) 40%,transparent);border-top-width:8px"></b>Descarga</span></div></section>
     ${grupos ? `<div class="cols">${grupos}</div>` : ''}
     <div class="cols">${lifts}${js}</div>
     ${otros.length ? `<section class="card"><h2>Otros ejercicios</h2><div class="tbl-wrap"><table><thead><tr><th>Ejercicio</th><th>Primera vez</th><th>Última</th><th>Cambio</th></tr></thead><tbody>
@@ -617,6 +686,50 @@ function cargarPerfil(id) {
   else { state = ejemplo(); ui.view = 'onb'; ui.paso = 1; ui.draft = nuevoDraft(); }
   render(); scrollTo(0, 0);
 }
+// Preguntas para armar la rutina (en los primeros pasos y en «Cambiar respuestas»)
+const chipsSel = (name, obj, vals) => Object.entries(obj).map(([k, t]) => `<label class="chip-sel"><input type="checkbox" name="${name}" value="${k}" ${vals.includes(k) ? 'checked' : ''}>${esc(t)}</label>`).join('');
+const prefsForm = pr => `
+  <fieldset><legend>¿Cómo la querés encarar?</legend><div class="opts" role="radiogroup" aria-label="Cómo encarar la rutina">${Object.entries(ENCARES).map(([k, [t, s]]) => `<label class="opt"><input type="radio" name="prEnc" value="${k}" ${pr.encare === k ? 'checked' : ''}><b>${t}</b><span>${s}</span></label>`).join('')}</div></fieldset>
+  <fieldset><legend>¿Qué te gusta hacer?</legend><div class="chips">${chipsSel('prGusto', GUSTOS, pr.gustos)}</div><p class="note">Lo que elijas lo sumo y lo prefiero cuando tengo que cambiar un ejercicio.</p></fieldset>
+  <div class="fgrid">${sel('pr-dur', 'Duración de la sesión', [[45, '45 min'], [60, '1 hora'], [75, '1 h 15'], [90, '1 h 30 o más']], pr.duracion)}${sel('pr-desc', 'Descanso entre series', Object.entries(DESCANSOS).map(([k, [t]]) => [k, t]), pr.descanso)}</div>
+  <div class="fgrid">${sel('pr-dep', '¿Hacés otro deporte?', Object.entries(DEPORTES), pr.deporte)}${sel('pr-depd', '¿Cuántos días por semana?', [0, 1, 2, 3, 4, 5, 6].map(x => [x, x ? x + (x === 1 ? ' día' : ' días') : '—']), pr.deporteDias)}</div>
+  <fieldset><legend>¿Con qué contás?</legend><div class="chips">${chipsSel('prEq', EQUIPO, pr.equipo)}</div><p class="note">Destildá lo que no tenés: uso solo ejercicios que puedas hacer.</p></fieldset>
+  <fieldset><legend>¿Alguna molestia?</legend><div class="chips">${chipsSel('prMol', MOLESTIAS, pr.molestias)}</div><p class="note">Evito y reemplazo los ejercicios que más cargan esa zona.</p></fieldset>`;
+const leerPrefs = () => {
+  const dep = $('#pr-dep').value;
+  return {
+    encare: (document.querySelector('input[name="prEnc"]:checked') || {}).value || 'equilibrado', gustos: $$('input[name="prGusto"]:checked').map(c => c.value),
+    equipo: $$('input[name="prEq"]:checked').map(c => c.value), duracion: +$('#pr-dur').value, descanso: $('#pr-desc').value,
+    deporte: dep, deporteDias: dep === 'ninguno' ? 0 : +$('#pr-depd').value, molestias: $$('input[name="prMol"]:checked').map(c => c.value)
+  };
+};
+function porQueRutinaHTML() {
+  const tiene = !!state.perfil.prefs, { razones } = armarRutina(state.perfil, state.objetivos);
+  return `<section class="card" aria-labelledby="pq-t"><div class="eyebrow">Cómo armo tu rutina sugerida</div>
+    <h2 id="pq-t" style="margin:4px 0 10px">${tiene ? 'Por qué queda así' : 'Contame cómo entrenás y la armo a tu medida'}</h2>
+    ${tiene ? `${state.rutinaModo === 'propia' ? '<p class="note">Tu rutina actual la armaste vos. Esto es lo que haría la sugerida:</p>' : ''}<ul class="revision">${razones.map(t => `<li>${esc(t)}</li>`).join('')}</ul>`
+      : '<p class="note">Cuánto dura tu sesión, cuánto descansás, qué te gusta, con qué equipo contás, si hacés otro deporte y si tenés molestias cambian mucho la rutina.</p>'}
+    <div class="row" style="margin-top:12px"><button class="btn ${tiene ? '' : 'primary'}" data-act="prefs">${tiene ? 'Cambiar respuestas' : 'Responder las preguntas'}</button></div></section>`;
+}
+function modalPrefs() {
+  openModal(`<h2 style="font-size:20px">Armemos tu rutina</h2>
+  <form id="fPrefs" style="display:grid;gap:18px" novalidate>${prefsForm(prefsDe(state.perfil))}
+    <label class="chk" style="white-space:normal"><input type="checkbox" id="pr-aplicar" checked> Reemplazar mi rutina por la nueva sugerida${state.rutinaModo === 'propia' ? ' (la tuya queda guardada en las rutinas del modo desarrollador)' : ''}</label>
+    <p class="note">El ritmo de carga y descarga se ajusta a tu deporte desde el próximo ciclo, para no desarmar el actual.</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn" type="button" data-act="cerrarModal">Cancelar</button><button class="btn primary" type="submit">Guardar</button></div>
+  </form>`);
+}
+// Entrenamientos cargados con una rutina anterior: siguen contando y se ven en su semana
+function deOtraRutina(plan, cy, wi) {
+  const W = (cy.logs || {})[wi] || {}, ids = Object.keys(W).filter(sid => !state.rutina.some(s => s.id === sid));
+  if (!ids.length) return '';
+  return `<div class="eyebrow" style="margin-top:6px">Cargados con otra rutina</div>` + ids.map(sid => {
+    const lg = W[sid], ens = Object.values(lg.ej);
+    return `<article class="ses done"><div class="ses-head" style="cursor:default"><span class="ses-n"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M4 9.5l3.2 3L14 5.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span style="min-width:0"><b>Entrenamiento de otra rutina</b><span class="note">${ens.map(en => esc(corto(en.e))).join(' · ')}</span></span><span class="ses-st">Cargado · ${fd(parse(lg.fecha))}</span></div>
+      <div class="ses-body">${ens.map(en => `<div class="sum-row"><span>${esc(corto(en.e))}</span>${en.skip ? '<span class="note">No lo hiciste</span>' : `<span class="num">${en.s.map(x => serieTxt(ejDe(en.e), x)).join('  ')}</span>`}</div>`).join('')}</div></article>`;
+  }).join('');
+}
 function revisionHTML(plan) {
   const rv = revisarRutina(plan, state.rutina, state.objetivos);
   const chips = Object.entries(rv.series).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([g, v]) => `<span class="chip">${esc(GRUPOS[g] || g)} · <b>${v}</b></span>`).join('');
@@ -628,7 +741,7 @@ function revisionHTML(plan) {
 }
 function renderRutina(plan) {
   const auto = state.rutinaModo === 'auto';
-  return `${revisionHTML(plan)}<section class="card"><div class="kilo-edge">${kilo()}</div><div class="eyebrow">Tu rutina</div>
+  return `${porQueRutinaHTML()}${revisionHTML(plan)}<section class="card"><div class="kilo-edge">${kilo()}</div><div class="eyebrow">Tu rutina</div>
     <h2 style="font-size:20px;margin:4px 0 12px">Tus entrenamientos de cada semana</h2>
     <div class="seg" role="group" aria-label="Quién arma la rutina"><button class="${auto ? 'on' : ''}" data-act="rutModo" data-v="auto">Sugerida</button><button class="${auto ? '' : 'on'}" data-act="rutModo" data-v="propia">Armada por mí</button></div>
     <p class="note" id="rutNota" style="margin-top:10px">${auto ? 'La armé según tus días, tu enfoque y lo que querés mejorar. Si cambiás algo, pasa a ser tuya.' : 'Elegí los ejercicios de la lista. Los cambios se guardan solos.'}
@@ -655,7 +768,7 @@ function guardarRutina() {
 }
 
 /* ================= PRIMEROS PASOS ================= */
-const PASOS = ['bienvenida', 'vos', 'enfoque', 'marcas', 'objetivos', 'calendario', 'listo'];
+const PASOS = ['bienvenida', 'vos', 'enfoque', 'marcas', 'objetivos', 'rutina', 'calendario', 'listo'];
 const ENF_DESC = { fuerza: 'Subir tus 1RM en los básicos.', hipertrofia: 'Ganar masa muscular.', potencia: 'Saltar más alto y ser más explosivo.', mixto: 'Fuerza y saltos a la vez.' };
 const nuevoDraft = () => ({ perfil: { nombre: '', sexo: 'm', edad: 0, peso: 0, altura: 0, experiencia: 0, enfoque: 'mixto', dias: 4, recuperacion: 3, duracion: 16, carga: 0, rm: {}, salto: {}, nose: {}, competencias: [] }, objetivos: [], modoObj: 'gen', inicio: 'proximo' });
 const num = (id, label, val, step, unit) => `<label class="f">${label}${unit ? ` (${unit})` : ''}<input id="${id}" type="number" inputmode="decimal" step="${step || 1}" min="0" value="${val || ''}"></label>`;
@@ -695,6 +808,7 @@ function leerPaso() {
   const mo = document.querySelector('input[name="modoObj"]:checked');
   if (mo) { d.modoObj = mo.value; d.objetivos = mo.value === 'esp' ? leerObjetivos() : []; }
   if (g('f-dur')) { p.duracion = +g('f-dur').value; p.carga = +g('f-carga').value || 0; d.inicio = g('f-inicio').value; p.competencias = leerComps(); }
+  if (g('pr-dur')) p.prefs = leerPrefs();
 }
 function renderOnb() {
   const d = ui.draft, p = d.perfil, i = ui.paso, paso = PASOS[i];
@@ -703,7 +817,7 @@ function renderOnb() {
       ${escena({ tall: true, label: 'Bienvenida', eyebrow: 'Marea', titulo: 'Tu entrenamiento, en mareas', sub: 'Semanas de carga, semanas de descarga y un registro de todo lo que levantás.', tipo: 'carga' })}
       <section class="card onb-card"><div class="onb-body">
         <p style="font-size:16px">Contame cómo entrenás y qué querés lograr. Yo armo el ciclo y, semana a semana, comparo lo que levantás con lo planeado para avisarte cuándo subir y cuándo descargar.</p>
-        <p class="note">Son 6 pasos cortos. Después podés cambiar todo.</p>
+        <p class="note">Son 7 pasos cortos. Después podés cambiar todo.</p>
         <div class="row"><button class="btn primary" data-act="sig">Empezar</button><button class="btn ghost" data-act="verEjemplo">Ver un ejemplo primero</button></div>
       </div></section></div>`;
     setSave(); conectarKilo([]);
@@ -734,6 +848,9 @@ function renderOnb() {
     body = `<h2 class="onb-h">¿Qué querés mejorar?</h2>
       <div class="opts" role="radiogroup" aria-label="Tipo de objetivo">${[['gen', 'Todo en general', 'Sigo todos tus ejercicios por igual.'], ['esp', 'Algo en particular', 'Un grupo (por ejemplo, tracción) o ejercicios puntuales. Eso pesa el doble en tu plan.']].map(([v, t, s]) => `<label class="opt"><input type="radio" name="modoObj" value="${v}" ${d.modoObj === v ? 'checked' : ''}><b>${t}</b><span>${s}</span></label>`).join('')}</div>
       <div id="goalsWrap" style="display:grid;gap:16px" ${d.modoObj === 'esp' ? '' : 'hidden'}>${objetivosForm(d.objetivos)}</div>`;
+  } else if (paso === 'rutina') {
+    say = 'Con esto armo tu rutina: cuánto tiempo tenés, qué te gusta, qué equipo hay, si hacés otro deporte y si algo te molesta.';
+    body = `<h2 class="onb-h">Armemos tu rutina</h2>${prefsForm(prefsDe(p))}`;
   } else if (paso === 'calendario') {
     say = 'Si tenés una competencia, armo el ciclo hacia atrás desde esa fecha.';
     const b = lunes(new Date());
@@ -927,6 +1044,7 @@ document.addEventListener('click', e => {
   if (a === 'adelantar') { cy.overrides = cy.overrides || {}; cy.overrides[+el.dataset.i] = 'descarga'; persist(); render(); return; }
   if (a === 'toggleDes') { const i = +el.dataset.i; cy.overrides = cy.overrides || {}; if (cy.overrides[i]) delete cy.overrides[i]; else cy.overrides[i] = 'descarga'; persist(); render(); return; }
   if (a === 'perfil') return modalPerfil();
+  if (a === 'prefs') return modalPrefs();
   if (a === 'cerrar') return modalCerrar();
   if (a === 'coach') return modalCoach();
   if (a === 'nuevoEj') return modalNuevoEj();
@@ -1035,6 +1153,14 @@ document.addEventListener('submit', e => {
   const f = e.target; e.preventDefault();
   if (f.id === 'onbForm') return avanzarOnb();
   if (f.id === 'fPerfil') return guardarPerfil();
+  if (f.id === 'fPrefs') {
+    state.perfil.prefs = leerPrefs();
+    if ($('#pr-aplicar').checked) {
+      if (state.rutinaModo === 'propia') state.rutinas.push({ id: nid('r'), nombre: `Antes de cambiar respuestas · ${fd(new Date())}`, fecha: iso(new Date()), rutina: clone(state.rutina) });
+      state.rutina = rutinaBase(state.perfil, state.objetivos); state.rutinaModo = 'auto';
+    }
+    persist(); closeModal(); ui.celebrar = null; render(); return;
+  }
   if (f.id === 'fCerrar') return cerrarCiclo();
   if (f.id === 'fNuevoEj') {
     const n = $('#ne-n').value.trim(); if (!n) { const err = $('#fErr'); err.textContent = 'Poné un nombre para el ejercicio.'; err.hidden = false; return; }
