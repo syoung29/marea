@@ -599,6 +599,15 @@ function renderDev(plan, cy, raw, c) {
       <div><dt>Sugerencias activas</dt><dd>${sugerencias.join(' · ') || 'ninguna'}</dd></div>
     </dl></section>`;
 }
+// En los primeros pasos no hay pestañas: si existen otros perfiles con datos, se ofrece volver a ellos
+function otrosPerfiles() {
+  const version = ui.versionNueva ? `<div class="banner rec"><span><b>Hay una versión nueva de Marea.</b></span><button class="btn small primary" data-act="actualizarApp">Actualizar</button></div>` : '';
+  const otros = indicePerfiles().filter(x => x.id !== perfilId && lsGet(claveDe(x.id)));
+  if (!otros.length) return version;
+  const nombre = x => { try { return JSON.parse(lsGet(claveDe(x.id))).perfil.nombre || x.nombre; } catch (e) { return x.nombre; } };
+  return `<div class="banner"><span>Estás creando un perfil nuevo. Tus otros perfiles siguen guardados.</span>
+    <span class="row">${otros.map(x => `<button class="btn small primary" data-act="perfilUsar" data-id="${x.id}">Volver a ${esc(nombre(x))}</button>`).join('')}</span></div>` + version;
+}
 // Carga un perfil sin guardar el actual (se usa al borrar el perfil en uso)
 function cargarPerfil(id) {
   perfilId = id; lsSet(LS_ACT, id);
@@ -690,7 +699,7 @@ function leerPaso() {
 function renderOnb() {
   const d = ui.draft, p = d.perfil, i = ui.paso, paso = PASOS[i];
   if (paso === 'bienvenida') {
-    $('#main').innerHTML = `<div class="onb">
+    $('#main').innerHTML = `<div class="onb">${otrosPerfiles()}
       ${escena({ tall: true, label: 'Bienvenida', eyebrow: 'Marea', titulo: 'Tu entrenamiento, en mareas', sub: 'Semanas de carga, semanas de descarga y un registro de todo lo que levantás.', tipo: 'carga' })}
       <section class="card onb-card"><div class="onb-body">
         <p style="font-size:16px">Contame cómo entrenás y qué querés lograr. Yo armo el ciclo y, semana a semana, comparo lo que levantás con lo planeado para avisarte cuándo subir y cuándo descargar.</p>
@@ -748,7 +757,7 @@ function renderOnb() {
       <div class="strip" aria-hidden="true">${pl.weeks.map(w => `<i class="${w.tipo}"></i>`).join('')}</div>
       ${pl.aviso ? `<p class="note">${esc(pl.aviso)}</p>` : ''}`;
   }
-  $('#main').innerHTML = `<div class="onb"><section class="card onb-card" aria-label="Primeros pasos">
+  $('#main').innerHTML = `<div class="onb">${otrosPerfiles()}<section class="card onb-card" aria-label="Primeros pasos">
     <div class="onb-top"><div class="dots-prog" aria-hidden="true">${PASOS.slice(1).map((_, k) => `<i class="${k < i ? 'on' : ''}"></i>`).join('')}</div><span class="note">Paso ${i} de ${PASOS.length - 1}</span></div>
     <div class="onb-grid">
       <div class="onb-kilo">${kilo()}<div class="say" role="status">${say}</div></div>
@@ -1085,7 +1094,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   }).catch(() => {});
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!habiaVersion || ui.versionNueva) return;
-    if (ui.open || $('#modalRoot').innerHTML || ui.view === 'onb') { ui.versionNueva = true; render(); }
+    if (ui.open || $('#modalRoot').innerHTML || (ui.view === 'onb' && ui.paso > 0)) { ui.versionNueva = true; render(); }
     else location.reload();
   });
 }
