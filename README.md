@@ -51,7 +51,7 @@ Todo se guarda en el dispositivo (no hay cuentas todavía). Desde la pestaña **
 | `css/app.css` | Colores, tipografías y animaciones |
 | `css/sitio.css`, `js/sitio.js` | Estilos y animaciones de la presentación |
 | `js/ejercicios.js` | Base de ejercicios: grupos, cómo se registra cada uno y cuáles se calculan con tu 1RM |
-| `js/motor.js` | El algoritmo: fases, carga y descarga, proyecciones, comparación con lo planeado |
+| `js/motor.js` | El algoritmo: fases, carga y descarga, esquema por función de cada ejercicio, proyecciones, correcciones y revisión de rutina. Explicado en [docs/metodologia.md](docs/metodologia.md) |
 | `js/mascotas.js` | Kilo, Disco y la escena de mareas |
 | `js/app.js` | Pantallas, primeros pasos, registro y guardado |
 | `sw.js` | Guarda la app para que abra sin conexión |

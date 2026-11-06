@@ -294,3 +294,17 @@ svg .sel{fill:none;stroke:var(--accent);stroke-width:2}
 .set{grid-template-columns:22px 92px auto 76px auto 36px}
 .del-set{border:0;background:transparent;color:var(--muted);font-size:20px;line-height:1;width:36px;height:36px;border-radius:50%;padding:0}
 .del-set:hover{background:var(--sunk);color:var(--ink)}
+
+/* Revisión de rutina y modo desarrollador */
+.revision{margin:12px 0 0;padding:0;list-style:none;display:grid;gap:8px}
+.revision li{font-size:14px;padding:10px 12px;border-radius:12px;background:var(--sunk);color:var(--ink)}
+.revision li.warn{background:color-mix(in srgb,var(--load) 14%,var(--surface))}
+.rut-row{grid-template-columns:minmax(0,1fr) 84px auto}
+.rut-row [id^="rq-"]{text-align:center}
+.dev-list{display:grid;margin-top:10px}
+.dev-row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 0;border-bottom:1px solid var(--line)}
+.dev-row:last-child{border-bottom:0}
+.dev-row.propio{display:grid;grid-template-columns:minmax(0,1fr) 160px 190px auto}
+@media (max-width:640px){.dev-row.propio{grid-template-columns:1fr 1fr}.dev-row.propio>:first-child{grid-column:1/-1}}
+.set.set-lanz{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.set.set-lanz .in{width:72px}

@@ -3,11 +3,24 @@ import { $, $$, esc, r25, clone, iso, parse, lunes, addD, fd, fmt, nid } from '.
 import { GRUPOS, TIPOS, MARCAS, SALTOS, EXTRA_GRUPO, ejDe, todos, registrarPropios, alternativas } from './ejercicios.js';
 import {
   ENFOQUES, NIVEL, generar, elegirComp, proyeccion, veredicto, objetivoEj, rpeTxt, rendimientoSemana, veredictoSemana,
-  sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie, proyeccionAjustada, ajustesBaja
+  sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie, proyeccionAjustada, ajustesBaja, rol, ROLES, revisarRutina
 } from './motor.js';
 import { kilo, escena, act, decir, conectarKilo, iniciarMascotas, rodarEscena, vueltaDisco, REDUCE } from './mascotas.js';
 
 const LS = 'marea.datos';
+// Perfiles (modo desarrollador): cada uno se guarda en su propia clave. El primero, «principal», usa la clave de siempre.
+const LS_IDX = 'marea.perfiles', LS_ACT = 'marea.activo', LS_DEV = 'marea.dev';
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } };
+const lsDel = k => { try { localStorage.removeItem(k); } catch (e) { /* sin acceso: no hay nada que borrar */ } };
+const claveDe = id => id === 'principal' ? LS : `${LS}.${id}`;
+let perfilId = lsGet(LS_ACT) || 'principal', dev = lsGet(LS_DEV) === '1';
+function indicePerfiles() {
+  let l; try { l = JSON.parse(lsGet(LS_IDX) || '[]'); } catch (e) { l = []; }
+  if (!l.some(x => x.id === 'principal')) l.unshift({ id: 'principal', nombre: 'Principal' });
+  return l;
+}
+const guardarIndice = l => lsSet(LS_IDX, JSON.stringify(l));
 const nombreDe = k => ejDe(k).n;
 const corto = k => nombreDe(k).replace(/ \(.*\)/, '');
 const TIPO = { carga: 'Carga', descarga: 'Descarga', test: 'Test' };
@@ -38,27 +51,52 @@ const SPLITS = {
   5: [['Pierna · fuerza', ['sentadilla', 'zancadas', 'curl_isquios'], 1], ['Empuje', ['banca', 'militar', 'fondos'], 0], ['Tirón', ['muerto', 'remo_barra', 'dominadas'], 0], ['Pierna · potencia', ['sentadilla_frontal', 'hip_thrust', 'gemelos'], 1], ['Torso · volumen', ['inclinado_mancuernas', 'remo_mancuerna', 'laterales'], 0]],
   6: [['Empuje A', ['banca', 'inclinado_mancuernas', 'fondos'], 0], ['Tirón A', ['muerto', 'remo_barra', 'biceps'], 0], ['Pierna A', ['sentadilla', 'zancadas', 'curl_isquios'], 1], ['Empuje B', ['militar', 'inclinado', 'laterales'], 0], ['Tirón B', ['dominadas', 'remo_mancuerna', 'face_pull'], 0], ['Pierna B', ['sentadilla_frontal', 'hip_thrust', 'gemelos'], 1]]
 };
+// Rutina sugerida: reglas de programación aplicadas a tus datos (ver docs/metodologia.md)
+const ORDEN_ROL = { potencia: 0, olimpico: 1, principal: 2, secundario: 3, accesorio: 4, core: 5 };
+const MAX_EJ = 7; // más de 7 ejercicios por sesión suele bajar la calidad de los últimos
 function rutinaBase(p, objetivos = []) {
-  const pot = p.enfoque === 'potencia' || p.enfoque === 'mixto', item = e => ({ id: nid('i'), e });
+  const pot = p.enfoque === 'potencia' || p.enfoque === 'mixto', hip = p.enfoque === 'hipertrofia', item = e => ({ id: nid('i'), e });
   const tiene = k => p.rm[k] > 0 || !!(p.nose || {})[k];
   const r = (SPLITS[p.dias] || SPLITS[4]).map(([nombre, ejs, pierna]) => ({ id: nid('s'), nombre, pierna: !!pierna, items: ejs.map(item) }));
-  const piernas = r.filter(s => s.pierna);
-  if (p.enfoque !== 'hipertrofia' && piernas.length) {
-    const plio = pot ? [['cmj', 'lanz_vertical'], ['largo', 'lanz_horizontal']] : [['salto_cajon'], ['salto_cajon']];
-    piernas.forEach((s, i) => s.items.unshift(...plio[i % 2].map(item)));
+  const piernas = r.filter(s => s.pierna), torsos = r.filter(s => !s.pierna);
+  const metas = new Set(objetivos.filter(o => o.tipo === 'ej').map(o => o.clave));
+  const poner = (s, e) => { if (s && !s.items.some(i => i.e === e)) s.items.push(item(e)); };
+  // 1. Pliometría en días de pierna, separando salto vertical y horizontal entre días (más de 48 h entre sesiones intensas)
+  if (!hip && piernas.length) {
+    const plio = pot ? [['cmj', 'lanz_vertical'], ['largo', 'salto_una_pierna']] : [['salto_cajon'], ['largo']];
+    piernas.forEach((s, i) => plio[i % 2].forEach(e => poner(s, e)));
+    // Potencia de tren superior: un lanzamiento en el primer día de torso
+    if (pot && torsos.length) poner(torsos[0], 'lanz_horizontal');
   }
-  const trasSaltos = (s, e) => { const i = s.items.findIndex(x => !esPlio(x.e)); s.items.splice(i < 0 ? s.items.length : i, 0, item(e)); };
+  // 2. Olímpicos (solo si los hacés o marcaste «No sé»)
   if (pot && piernas.length) {
-    if (tiene('cargada')) trasSaltos(piernas[0], 'cargada');
-    if (tiene('arranque')) trasSaltos(piernas[1] || piernas[0], 'arranque');
+    if (tiene('cargada')) poner(piernas[0], 'cargada');
+    if (tiene('arranque')) poner(piernas[1] || piernas[0], 'arranque');
   }
+  // 3. Prevención de lesiones según el enfoque
+  if (pot) { poner(piernas[0] || r[0], 'nordico'); poner(piernas[1] || piernas[0] || r[0], 'copenhague'); }
+  if (!hip) poner(torsos[torsos.length - 1] || r[r.length - 1], 'face_pull');
+  if (hip) {
+    torsos.forEach((s, i) => poner(s, ['laterales', 'triceps', 'biceps', 'aperturas'][i % 4]));
+    piernas.forEach(s => poner(s, 'ext_cuadriceps'));
+  }
+  // 4. Lo que querés mejorar: un ejercicio más del grupo, y los ejercicios puntuales que elegiste
   const menosCargada = () => [...r].sort((a, b) => a.items.length - b.items.length)[0];
   objetivos.filter(o => o.tipo === 'grupo').forEach(o => {
     const e = EXTRA_GRUPO[o.grupo]; if (!e || r.some(s => s.items.some(i => i.e === e))) return;
     (r.find(s => s.items.some(i => ejDe(i.e).g === o.grupo)) || menosCargada()).items.push(item(e));
+    metas.add(e);
   });
   objetivos.filter(o => o.tipo === 'ej').forEach(o => { if (!r.some(s => s.items.some(i => i.e === o.clave))) menosCargada().items.push(item(o.clave)); });
-  r.forEach(s => delete s.pierna);
+  // 5. Orden por función y tope de ejercicios: si sobra, salen primero accesorios y core que no sean objetivos
+  r.forEach(s => {
+    s.items.sort((a, b) => ORDEN_ROL[rol(ejDe(a.e))] - ORDEN_ROL[rol(ejDe(b.e))]);
+    for (let i = s.items.length - 1; s.items.length > MAX_EJ && i >= 0; i--) {
+      const ro = rol(ejDe(s.items[i].e));
+      if ((ro === 'accesorio' || ro === 'core') && !metas.has(s.items[i].e)) s.items.splice(i, 1);
+    }
+    delete s.pierna;
+  });
   return r;
 }
 
@@ -69,7 +107,7 @@ const ui = { view: 'onb', tab: 'semana', wk: null, planSel: null, open: null, pa
 const nuevoCiclo = (p, objetivos, inicio) => ({ id: nid('c'), inicio: iso(inicio), comp: elegirComp(p, inicio), snap: clone({ perfil: p, objetivos }), overrides: {}, logs: {}, saltos: [], inicioRM: { ...p.rm, ...p.salto }, cierre: null });
 const inicioDe = cuando => { const b = lunes(new Date()); return cuando === 'este' ? b : addD(b, 7); };
 function crearPlan(p, objetivos, cuando) {
-  state = { v: 3, ejemplo: false, perfil: p, objetivos, rutina: rutinaBase(p, objetivos), rutinaModo: 'auto', propios: [], recordatorio: { dias: [], hora: '18:00' }, ciclos: [nuevoCiclo(p, objetivos, inicioDe(cuando))] };
+  state = { v: 3, ejemplo: false, perfil: p, objetivos, rutina: rutinaBase(p, objetivos), rutinaModo: 'auto', propios: [], recordatorio: { dias: [], hora: '18:00' }, rutinas: [], notas: [], ciclos: [nuevoCiclo(p, objetivos, inicioDe(cuando))] };
 }
 function ejemplo() {
   const perfil = { nombre: '', edad: 24, sexo: 'm', peso: 78, altura: 178, experiencia: 1.5, enfoque: 'potencia', dias: 4, recuperacion: 3, duracion: 20, carga: 0,
@@ -95,11 +133,11 @@ function ejemplo() {
       cy.logs[wi][s.id] = { fecha: iso(addD(ini, wi * 7 + j * 2)), ej };
     });
   }
-  return { v: 3, ejemplo: true, perfil, objetivos, rutina, rutinaModo: 'auto', propios: [], recordatorio: { dias: [], hora: '18:00' }, ciclos: [cy] };
+  return { v: 3, ejemplo: true, perfil, objetivos, rutina, rutinaModo: 'auto', propios: [], recordatorio: { dias: [], hora: '18:00' }, rutinas: [], notas: [], ciclos: [cy] };
 }
 function migrar(s) {
   s.perfil.nose = s.perfil.nose || {}; s.propios = s.propios || []; s.rutinaModo = s.rutinaModo || 'auto';
-  s.recordatorio = s.recordatorio || { dias: [], hora: '18:00' }; s.recordatorio = s.recordatorio || { dias: [], hora: '18:00' };
+  s.recordatorio = s.recordatorio || { dias: [], hora: '18:00' }; s.rutinas = s.rutinas || []; s.notas = s.notas || [];
   s.objetivos = (s.objetivos || []).map(o => o.tipo ? o : { tipo: 'ej', clave: o.clave, objetivo: o.objetivo });
   if (!s.rutina) s.rutina = rutinaBase(s.perfil, s.objetivos);
   s.ciclos.forEach(cy => { cy.logs = cy.logs || {}; cy.saltos = cy.saltos || []; cy.inicioRM = cy.inicioRM || { ...cy.snap.perfil.rm, ...cy.snap.perfil.salto }; });
@@ -108,9 +146,14 @@ function migrar(s) {
 function setSave(msg) { $('#saveState').textContent = msg || (state.ejemplo ? (ui.view === 'onb' ? 'Todavía no guardaste nada' : 'Ejemplo: no se guarda nada') : 'Guardado en este dispositivo'); }
 function persist() {
   if (state.ejemplo) return;
-  try { localStorage.setItem(LS, JSON.stringify(state)); setSave(); }
-  catch (e) { setSave('No se pudo guardar: el dispositivo no tiene lugar'); }
+  if (!lsSet(claveDe(perfilId), JSON.stringify(state))) return setSave('No se pudo guardar: el dispositivo no tiene lugar');
+  setSave();
+  // El nombre del perfil sigue al nombre que cargaste en tus datos
+  const idx = indicePerfiles(), yo = idx.find(x => x.id === perfilId);
+  if (yo && state.perfil.nombre && yo.nombre !== state.perfil.nombre && perfilId !== 'principal') { yo.nombre = state.perfil.nombre; guardarIndice(idx); }
 }
+// Cambia de perfil: guarda el actual y carga el otro (o arranca los primeros pasos si está vacío)
+function usarPerfil(id) { persist(); cargarPerfil(id); }
 const activo = () => state.ciclos[state.ciclos.length - 1];
 const planDe = cy => generar(cy, state.ciclos);
 function semanaActual(cy, plan) {
@@ -121,7 +164,8 @@ function semanaActual(cy, plan) {
 /* ================= RENDER ================= */
 function renderTabs() {
   const t = $('#tabs'); t.hidden = ui.view === 'onb';
-  t.innerHTML = [['semana', 'Semana'], ['progreso', 'Progreso'], ['plan', 'Plan'], ['rutina', 'Rutina']].map(([k, n]) => `<button class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}" ${ui.tab === k ? 'aria-current="page"' : ''}>${n}</button>`).join('');
+  if (!dev && ui.tab === 'dev') ui.tab = 'plan';
+  t.innerHTML = [['semana', 'Semana'], ['progreso', 'Progreso'], ['plan', 'Plan'], ['rutina', 'Rutina'], ...(dev ? [['dev', 'Dev']] : [])].map(([k, n]) => `<button class="${ui.tab === k ? 'on' : ''}" data-act="tab" data-t="${k}" ${ui.tab === k ? 'aria-current="page"' : ''}>${n}</button>`).join('');
 }
 function render() {
   registrarPropios(state.propios);
@@ -130,7 +174,7 @@ function render() {
   if (ui.view === 'onb') return renderOnb();
   const cy = activo(), plan = planDe(cy), { raw, c } = semanaActual(cy, plan);
   if (ui.wk == null || ui.wk >= plan.weeks.length) ui.wk = c;
-  const html = { semana: renderSemana, progreso: renderProgreso, plan: renderPlan, rutina: renderRutina }[ui.tab](plan, cy, raw, c);
+  const html = { semana: renderSemana, progreso: renderProgreso, plan: renderPlan, rutina: renderRutina, dev: renderDev }[ui.tab](plan, cy, raw, c);
   $('#main').innerHTML = (state.ejemplo ? `<div class="banner"><span><b>Estás viendo un ejemplo</b> con entrenamientos ya cargados.</span><button class="btn small primary" data-act="onb">Crear mi plan</button></div>` : '') + html;
   setSave();
   const w = plan.weeks[c];
@@ -213,7 +257,7 @@ function haciaDonde(plan, cy) {
     <h2 style="margin:4px 0 12px">Al cierre del ciclo · ${fd(fin)}</h2><div class="dests">${items}</div>
     ${chips ? `<div class="chips" style="margin-top:12px"><span class="note">Grupos que querés mejorar:</span>${chips}</div>` : ''}</section>`;
 }
-const serieTxt = (d, x) => d.t === 'salto' || d.t === 'lanzamiento' ? `${x.reps}${x.marca ? ' · ' + x.marca.toLocaleString('es') + ' ' + d.marca : ''}` : d.t === 'tiempo' ? `${x.seg} s` : d.t === 'lastre' ? `${x.kg ? '+' + x.kg.toLocaleString('es') : 'PC'}×${x.reps}` : `${(x.kg || 0).toLocaleString('es')}×${x.reps}`;
+const serieTxt = (d, x) => d.t === 'salto' || d.t === 'lanzamiento' ? `${x.reps}${x.kg ? ' con ' + x.kg.toLocaleString('es') + ' kg' : ''}${x.marca ? ' · ' + x.marca.toLocaleString('es') + ' ' + d.marca : ''}` : d.t === 'tiempo' ? `${x.seg} s` : d.t === 'lastre' ? `${x.kg ? '+' + x.kg.toLocaleString('es') : 'PC'}×${x.reps}` : `${(x.kg || 0).toLocaleString('es')}×${x.reps}`;
 function mejorTxt(en, peso) {
   const d = ejDe(en.e);
   if (d.t === 'salto' || d.t === 'lanzamiento') { const m = Math.max(0, ...en.s.map(x => x.marca || 0)); return m ? `${m.toLocaleString('es')} ${d.marca}` : `${en.s.length} series`; }
@@ -225,7 +269,9 @@ function setRow(d, sid, iid, i, x, o, prevKg) {
   const id = `${sid}-${iid}-${i}`;
   const inp = (f, val, ph, lbl, step, mode) => `<input class="in" id="${f}-${id}" type="number" inputmode="${mode}" step="${step}" min="0" data-f="${f}" value="${val ?? ''}" placeholder="${ph ?? ''}" aria-label="${lbl}, serie ${i + 1}">`;
   const del = `<button type="button" class="del-set" data-act="delSet" aria-label="Borrar serie ${i + 1}">×</button>`;
-  if (d.t === 'salto' || d.t === 'lanzamiento') return `<div class="set"><span class="set-i">${i + 1}</span>${inp('reps', x ? x.reps : '', o.reps, 'Repeticiones', 1, 'numeric')}<span>reps</span>${d.marca ? inp('marca', x && x.marca ? x.marca : '', '', `Marca en ${d.marca} (opcional)`, .5, 'decimal') + `<span>${d.marca}</span>` : ''}${del}</div>`;
+  // Lanzamientos: además de reps y marca, el peso del balón (opcional)
+  const balon = d.t === 'lanzamiento' ? inp('kg', x && x.kg ? x.kg : '', prevKg != null ? prevKg : '', 'Kilos del balón (opcional)', .5, 'decimal') + '<span>kg</span>' : '';
+  if (d.t === 'salto' || d.t === 'lanzamiento') return `<div class="set ${balon ? 'set-lanz' : ''}"><span class="set-i">${i + 1}</span>${inp('reps', x ? x.reps : '', o.reps, 'Repeticiones', 1, 'numeric')}<span>reps</span>${balon}${d.marca ? inp('marca', x && x.marca ? x.marca : '', '', `Marca en ${d.marca} (opcional)`, .5, 'decimal') + `<span>${d.marca}</span>` : ''}${del}</div>`;
   if (d.t === 'tiempo') return `<div class="set"><span class="set-i">${i + 1}</span>${inp('seg', x ? x.seg : '', o.seg || 30, 'Segundos', 5, 'numeric')}<span>seg</span>${del}</div>`;
   const ph = o.conRM ? o.kg : prevKg != null ? prevKg : d.t === 'lastre' ? 0 : 'kg';
   return `<div class="set"><span class="set-i">${i + 1}</span>${inp('kg', x && x.kg != null ? x.kg : '', ph, d.t === 'lastre' ? 'Kilos de lastre' : 'Kilos', .5, 'decimal')}<span>${d.t === 'lastre' ? 'kg lastre ×' : 'kg ×'}</span>${inp('reps', x && x.reps ? x.reps : '', o.reps, 'Repeticiones', 1, 'numeric')}<span>reps</span>${del}</div>`;
@@ -235,8 +281,8 @@ const claveSwap = (wi, sid, iid) => `${wi}:${sid}:${iid}`;
 function exBlock(plan, cy, wi, s, it, lg, nP) {
   const w = plan.weeks[wi], P = plan.p.peso || 0, guardado = lg && lg.ej[it.id];
   const e = ui.swaps[claveSwap(wi, s.id, it.id)] || (guardado ? guardado.e : it.e), d = ejDe(e), mismo = guardado && guardado.e === e;
-  const o = objetivoEj(plan, w, e, nP), prev = ultimaEntrada(cy, e, wi), cur = mismo ? guardado.s : [];
-  const prevKg = prev && (d.t === 'carga' || d.t === 'lastre') ? (mejorSerie(prev, P) || {}).kg : null, n = Math.max(cur.length, o.sets || 3);
+  const o = objetivoEj(plan, w, e, nP, e === it.e ? it.esq : null), prev = ultimaEntrada(cy, e, wi), cur = mismo ? guardado.s : [];
+  const prevKg = prev && (d.t === 'carga' || d.t === 'lastre') ? (mejorSerie(prev, P) || {}).kg : prev && d.t === 'lanzamiento' ? (prev.s.find(x => x.kg) || {}).kg ?? null : null, n = Math.max(cur.length, o.sets || 3);
   const skip = !!(guardado && guardado.skip), alt = alternativas(it.e), plio = d.t === 'salto' || d.t === 'lanzamiento';
   const opt = x => `<option value="${x.id}" ${x.id === e ? 'selected' : ''}>${esc(x.n)}</option>`;
   return `<div class="ex ${skip ? 'skip' : ''}" data-i="${it.id}" data-e="${e}">
@@ -287,7 +333,7 @@ function sesion(plan, cy, wi, s, i) {
 }
 function leerSets(div, d) {
   const rows = [...div.querySelectorAll('.set')], v = (r, f) => { const el = r.querySelector(`[data-f="${f}"]`); return el ? el.value.trim() : ''; };
-  if (d.t === 'salto' || d.t === 'lanzamiento') return rows.map(r => ({ reps: parseInt(v(r, 'reps')) || 0, marca: parseFloat(v(r, 'marca')) || null })).filter(x => x.reps > 0);
+  if (d.t === 'salto' || d.t === 'lanzamiento') return rows.map(r => { const x = { reps: parseInt(v(r, 'reps')) || 0, marca: parseFloat(v(r, 'marca')) || null }; const kg = parseFloat(v(r, 'kg')); if (kg > 0) x.kg = kg; return x; }).filter(x => x.reps > 0);
   if (d.t === 'tiempo') return rows.map(r => ({ seg: parseInt(v(r, 'seg')) || 0 })).filter(x => x.seg > 0);
   if (d.t === 'lastre') return rows.map(r => ({ kg: parseFloat(v(r, 'kg')) || 0, reps: parseInt(v(r, 'reps')) || 0 })).filter(x => x.reps > 0);
   // Con peso: la serie cuenta si tiene reps y algún peso escrito
@@ -432,7 +478,8 @@ function renderPlan(plan, cy, raw, c) {
   </div>
   ${state.ciclos.length > 1 ? `<section class="card"><div class="eyebrow" style="margin-bottom:10px">Ciclos anteriores</div>${historial()}</section>` : ''}
   ${state.ejemplo ? '' : `<section class="card"><div class="eyebrow">Tus datos</div><p class="note" style="margin:6px 0 12px">Todo se guarda en este dispositivo. Descargá un respaldo de vez en cuando, y siempre antes de cambiar de teléfono.</p>
-    <div class="row"><button class="btn" data-act="exportar">Descargar respaldo</button><label class="btn" for="importar">Restaurar un respaldo</label><input type="file" id="importar" accept="application/json,.json" hidden></div></section>
+    <div class="row"><button class="btn" data-act="exportar">Descargar respaldo</button><label class="btn" for="importar">Restaurar un respaldo</label><input type="file" id="importar" accept="application/json,.json" hidden></div>
+    <div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)"><span class="note" style="flex:1;min-width:200px">Modo desarrollador: varios perfiles, rutinas para comparar, notas y los números internos del algoritmo.</span><button class="btn small" data-act="devToggle">${dev ? 'Desactivar' : 'Activar'}</button></div></section>
   <section class="card" aria-labelledby="rec-t"><div class="eyebrow">Recordatorios</div>
     <h2 id="rec-t" style="margin:4px 0 6px">Que el teléfono te avise los días que entrenás</h2>
     <p class="note" style="margin-bottom:12px">Elegí los días y la hora. Se agregan al calendario de tu teléfono hasta el final del ciclo, con aviso a esa hora.</p>
@@ -498,19 +545,85 @@ function historial() {
 const selEj = (id, val, label = 'Ejercicio') => `<select class="in" id="${id}" aria-label="${label}">${Object.entries(GRUPOS).map(([g, n]) => {
   const l = todos().filter(e => e.g === g); return l.length ? `<optgroup label="${esc(n)}">${l.map(e => `<option value="${e.id}" ${e.id === val ? 'selected' : ''}>${esc(e.n)}</option>`).join('')}</optgroup>` : '';
 }).join('')}</select>`;
-const itemRow = it => `<div class="rut-row" data-i="${it.id}">${selEj('re-' + it.id, it.e)}<button type="button" class="btn small ghost" data-act="quitarFila" data-sel=".rut-row">Quitar</button></div>`;
+const esqTxt = esq => esq ? `${esq.sets}x${esq.reps}` : '';
+const leerEsq = v => { const m = String(v || '').trim().match(/^(\d{1,2})\s*[x×*]\s*(\d{1,3})$/i); return m ? { sets: +m[1], reps: +m[2] } : null; };
+const itemRow = it => `<div class="rut-row" data-i="${it.id}">${selEj('re-' + it.id, it.e)}
+  <input class="in" id="rq-${it.id}" value="${esqTxt(it.esq)}" placeholder="auto" inputmode="text" aria-label="Esquema propio, por ejemplo 4x6 (vacío = automático)" title="Esquema propio: series x repeticiones (vacío = automático)">
+  <button type="button" class="btn small ghost" data-act="quitarFila" data-sel=".rut-row">Quitar</button></div>`;
 const sesBloque = s => `<div class="rut-s" data-s="${s.id}">
   <div class="row"><input class="in" id="rn-${s.id}" value="${esc(s.nombre)}" aria-label="Nombre del entrenamiento" style="flex:1;min-width:160px;font-weight:600">
     <button type="button" class="btn small ghost" data-act="quitarFila" data-sel=".rut-s">Quitar entrenamiento</button></div>
   <div class="rut-ex">${s.items.map(itemRow).join('')}</div>
   <div><button type="button" class="btn small" data-act="addEx">+ Ejercicio</button></div></div>`;
-function renderRutina() {
+/* ---------- Dev ---------- */
+const opciones = (obj, val) => Object.entries(obj).map(([v, t]) => `<option value="${v}" ${v === val ? 'selected' : ''}>${esc(t)}</option>`).join('');
+function renderDev(plan, cy, raw, c) {
+  const idx = indicePerfiles(), w = plan.weeks[c];
+  const marcas = [...MARCAS.filter(k => plan.p.rm[k] > 0), ...SALTOS.filter(k => plan.p.salto[k] > 0)];
+  const ultimas = plan.weeks.map((x, i) => i).filter(i => i <= c && plan.weeks[i].tipo === 'carga').slice(-3);
+  const sugerencias = [...records(plan, cy).map(r => `subir ${corto(r.k)} a ${fmt(r.v, 'kg')}`), ...ajustesBaja(plan, cy, c).map(r => `bajar ${corto(r.k)} a ${fmt(r.v, 'kg')}`), sugerirDescarga(plan, cy, c) ? 'adelantar la descarga' : ''].filter(Boolean);
+  return `<section class="card"><div class="kilo-edge">${kilo('', 'focus')}</div><div class="eyebrow">Modo desarrollador</div>
+    <h2 style="font-size:20px;margin:4px 0 6px">Perfiles</h2>
+    <p class="note">Cada perfil tiene su propio plan, rutina y registros. Sirven para probar cómo responde Marea a personas distintas.</p>
+    <div class="dev-list">${idx.map(x => `<div class="dev-row"><span><b>${esc(x.nombre)}</b>${x.id === perfilId ? ' <span class="tag t-up">en uso</span>' : ''}</span>
+      <span class="row">${x.id !== perfilId ? `<button class="btn small" data-act="perfilUsar" data-id="${x.id}">Usar</button>` : ''}${x.id !== 'principal' ? `<button class="btn small ghost" data-act="perfilBorrar" data-id="${x.id}">Borrar</button>` : ''}</span></div>`).join('')}</div>
+    <div class="row" style="margin-top:12px"><button class="btn primary" data-act="perfilNuevo">+ Perfil nuevo</button><button class="btn ghost small" data-act="devToggle">Salir del modo desarrollador</button></div></section>
+
+  <section class="card"><div class="eyebrow">Rutinas para comparar</div><h2 style="margin:4px 0 6px">Rutinas guardadas de este perfil</h2>
+    <p class="note">Guardá la rutina actual o la sugerida y cambiá entre versiones. Los entrenamientos que ya cargaste no se borran: vuelven a verse si volvés a esa rutina.</p>
+    <div class="row" style="margin-top:10px"><input class="in" id="rutNombre" placeholder="Nombre (por ejemplo: más saltos)" style="flex:1;min-width:180px"><button class="btn" data-act="rutGuardar">Guardar la actual</button><button class="btn" data-act="rutSugerida">Guardar la sugerida</button></div>
+    <div class="dev-list">${(state.rutinas || []).map(r => `<div class="dev-row"><span><b>${esc(r.nombre)}</b> <span class="note">· ${r.rutina.length} entrenamientos · ${r.rutina.reduce((a, s) => a + s.items.length, 0)} ejercicios · ${fd(parse(r.fecha))}</span></span>
+      <span class="row"><button class="btn small" data-act="rutUsar" data-id="${r.id}">Usar</button><button class="btn small ghost" data-act="rutBorrar" data-id="${r.id}">Borrar</button></span></div>`).join('') || '<p class="note">Todavía no guardaste ninguna.</p>'}</div></section>
+
+  <section class="card"><div class="eyebrow">Notas</div><h2 style="margin:4px 0 10px">Lo que querés cambiar o probar</h2>
+    <textarea class="in" id="notaTxt" rows="3" placeholder="Por ejemplo: en la semana 3 la sentadilla me quedó liviana" style="min-height:80px;font-family:inherit"></textarea>
+    <div class="row" style="margin-top:8px"><button class="btn primary" data-act="notaAgregar">Agregar nota</button>${(state.notas || []).length ? '<button class="btn" data-act="notasCopiar">Copiar todas</button>' : ''}<span class="note" id="notasMsg"></span></div>
+    <div class="dev-list">${(state.notas || []).slice().reverse().map(n => `<div class="dev-row"><span style="flex:1;min-width:200px"><span class="note">${fd(parse(n.fecha))} · semana ${n.semana}</span><br>${esc(n.texto)}</span><button class="btn small ghost" data-act="notaBorrar" data-id="${n.id}">Borrar</button></div>`).join('')}</div></section>
+
+  <section class="card"><div class="eyebrow">Tus ejercicios</div><h2 style="margin:4px 0 10px">Ejercicios creados por vos</h2>
+    ${state.propios.length ? state.propios.map(e => `<div class="dev-row propio" data-id="${e.id}"><input class="in" value="${esc(e.n)}" aria-label="Nombre del ejercicio"><select class="in" aria-label="Grupo">${opciones(GRUPOS, e.g)}</select><select class="in" aria-label="Cómo se registra">${opciones(TIPOS, e.t)}</select>
+      <span class="row"><button class="btn small" data-act="propioGuardar" data-id="${e.id}">Guardar</button><button class="btn small ghost" data-act="propioBorrar" data-id="${e.id}">Borrar</button></span></div>`).join('') : '<p class="note">No creaste ninguno todavía.</p>'}
+    <div class="row" style="margin-top:12px"><button class="btn" data-act="nuevoEj">+ Crear ejercicio</button></div></section>
+
+  <section class="card"><div class="eyebrow">Datos del motor</div><h2 style="margin:4px 0 10px">Lo que calcula Marea para este perfil</h2>
+    <div class="tbl-wrap"><table><thead><tr><th>Marca</th><th>Actual</th><th>Relativa</th><th>Nivel</th><th>Peso</th><th>Proyección</th><th>Con lo que llevás</th></tr></thead><tbody>
+    ${marcas.map(k => { const por = plan.niv.por[k] || {}, pr = proyeccion(plan, k), pa = proyeccionAjustada(plan, cy, k), u = SALTOS.includes(k) ? 'cm' : 'kg';
+      return `<tr><td>${esc(corto(k))}</td><td class="num">${fmt(SALTOS.includes(k) ? plan.p.salto[k] : plan.p.rm[k], u)}</td><td class="num">${por.s ? por.s.toFixed(2) : '—'}</td><td>${por.n != null ? NIVEL[por.n] : '—'}</td><td class="num">${por.w ?? '—'}</td><td class="num">${pr ? fmt(pr.proj, u) : '—'}</td><td class="num">${pa && pa.ajustada ? fmt(pa.proj, u) : 'igual'}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    <dl class="meta-list" style="margin-top:14px">
+      <div><dt>Nivel global</dt><dd>${NIVEL[plan.nivel]}</dd></div>
+      <div><dt>Semanas de carga por bloque</dt><dd>${plan.L}</dd></div>
+      <div><dt>Semana actual</dt><dd>${c + 1} · ${TIPO[w.tipo]} · ${Math.round(w.int)}% · ${w.sets}×${w.reps} · RPE ${rpeTxt(w)}${w.plyo ? ` · ${w.plyo.c} contactos` : ''}</dd></div>
+      <div><dt>Últimas semanas de carga vs plan</dt><dd>${ultimas.map(i => { const v = veredictoSemana(plan, cy, i); return `S${i + 1}: ${v ? Math.round(v.avg * 100) + '%' : 'sin datos'}`; }).join(' · ') || '—'}</dd></div>
+      <div><dt>Sugerencias activas</dt><dd>${sugerencias.join(' · ') || 'ninguna'}</dd></div>
+    </dl></section>`;
+}
+// Carga un perfil sin guardar el actual (se usa al borrar el perfil en uso)
+function cargarPerfil(id) {
+  perfilId = id; lsSet(LS_ACT, id);
+  const s = lsGet(claveDe(id));
+  Object.assign(ui, { tab: dev ? 'dev' : 'semana', wk: null, open: null, planSel: null, swaps: {} }); saludado = false;
+  if (s) { state = migrar(JSON.parse(s)); ui.view = 'dash'; }
+  else { state = ejemplo(); ui.view = 'onb'; ui.paso = 1; ui.draft = nuevoDraft(); }
+  render(); scrollTo(0, 0);
+}
+function revisionHTML(plan) {
+  const rv = revisarRutina(plan, state.rutina, state.objetivos);
+  const chips = Object.entries(rv.series).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([g, v]) => `<span class="chip">${esc(GRUPOS[g] || g)} · <b>${v}</b></span>`).join('');
+  return `<section class="card" aria-labelledby="rev-t"><div class="eyebrow">Revisión de tu rutina</div>
+    <h2 id="rev-t" style="margin:4px 0 10px">Series por semana en una semana de carga</h2>
+    <div class="chips">${chips}${rv.contactos ? `<span class="chip">Saltos y lanzamientos · <b>${rv.contactos}</b> ${ay('contactos')}</span>` : ''}</div>
+    ${rv.msgs.length ? `<ul class="revision">${rv.msgs.map(m => `<li class="${m.cls}">${esc(m.t)}</li>`).join('')}</ul>` : '<p class="note" style="margin-top:10px">Está equilibrada: no encuentro nada para ajustar.</p>'}
+  </section>`;
+}
+function renderRutina(plan) {
   const auto = state.rutinaModo === 'auto';
-  return `<section class="card"><div class="kilo-edge">${kilo()}</div><div class="eyebrow">Tu rutina</div>
+  return `${revisionHTML(plan)}<section class="card"><div class="kilo-edge">${kilo()}</div><div class="eyebrow">Tu rutina</div>
     <h2 style="font-size:20px;margin:4px 0 12px">Tus entrenamientos de cada semana</h2>
     <div class="seg" role="group" aria-label="Quién arma la rutina"><button class="${auto ? 'on' : ''}" data-act="rutModo" data-v="auto">Sugerida</button><button class="${auto ? '' : 'on'}" data-act="rutModo" data-v="propia">Armada por mí</button></div>
     <p class="note" id="rutNota" style="margin-top:10px">${auto ? 'La armé según tus días, tu enfoque y lo que querés mejorar. Si cambiás algo, pasa a ser tuya.' : 'Elegí los ejercicios de la lista. Los cambios se guardan solos.'}
-      Los básicos y sus variantes calculan los kilos con tu 1RM; el resto lo comparo con tu última vez.</p>
+      Los básicos y sus variantes calculan los kilos con tu 1RM; el resto lo comparo con tu última vez.
+      En la casilla «auto» podés fijar tu propio esquema (por ejemplo <b>4x6</b>); vacía, sigue la fase del ciclo.</p>
     <form id="rutForm" style="margin-top:8px" novalidate><div id="rutList">${state.rutina.map(sesBloque).join('')}</div></form>
     <div class="row" style="margin-top:16px"><button type="button" class="btn" data-act="addSes">+ Entrenamiento</button><button type="button" class="btn ghost" data-act="nuevoEj">Crear un ejercicio que no está en la lista</button></div>
   </section>`;
@@ -518,9 +631,15 @@ function renderRutina() {
 function guardarRutina() {
   state.rutina = $$('#rutList .rut-s').map(b => ({
     id: b.dataset.s, nombre: b.querySelector('[id^="rn-"]').value.trim() || 'Entrenamiento',
-    items: [...b.querySelectorAll('.rut-row')].map(r => ({ id: r.dataset.i, e: r.querySelector('select').value }))
+    items: [...b.querySelectorAll('.rut-row')].map(r => {
+      const it = { id: r.dataset.i, e: r.querySelector('select').value }, esq = leerEsq(r.querySelector('[id^="rq-"]').value);
+      if (esq) it.esq = esq;
+      return it;
+    })
   }));
   state.rutinaModo = 'propia'; persist();
+  // La revisión se recalcula al toque, sin redibujar el formulario
+  const rev = $('[aria-labelledby="rev-t"]'); if (rev) { const tmp = document.createElement('div'); tmp.innerHTML = revisionHTML(planDe(activo())); rev.replaceWith(tmp.firstElementChild); }
   $$('.seg [data-act="rutModo"]').forEach(b => b.classList.toggle('on', b.dataset.v === 'propia'));
   const nota = $('#rutNota'); if (nota) nota.firstChild.textContent = 'Elegí los ejercicios de la lista. Los cambios se guardan solos. ';
 }
@@ -784,7 +903,8 @@ document.addEventListener('click', e => {
   }
   if (a === 'rellenar') {
     el.closest('.ses-form').querySelectorAll('.ex:not(.skip) .set').forEach(r => {
-      const kg = r.querySelector('[data-f=kg]'); if (kg && !kg.value && !/^[\d.]+$/.test(kg.placeholder)) return;
+      // Sin kilos sugeridos ni de la última vez no se puede completar esa serie (salvo lanzamientos: el balón es opcional)
+      const kg = r.querySelector('[data-f=kg]'); if (kg && !r.classList.contains('set-lanz') && !kg.value && !/^[\d.]+$/.test(kg.placeholder)) return;
       r.querySelectorAll('input').forEach(i => { if (i.dataset.f !== 'marca' && !i.value && /^[\d.]+$/.test(i.placeholder)) i.value = i.placeholder; });
     });
     return;
@@ -801,6 +921,50 @@ document.addEventListener('click', e => {
   if (a === 'coach') return modalCoach();
   if (a === 'nuevoEj') return modalNuevoEj();
   if (a === 'exportar') return exportar();
+  // Modo desarrollador
+  if (a === 'devToggle') { dev = !dev; lsSet(LS_DEV, dev ? '1' : '0'); ui.tab = dev ? 'dev' : 'plan'; render(); scrollTo(0, 0); return; }
+  if (a === 'perfilUsar') return usarPerfil(el.dataset.id);
+  if (a === 'perfilNuevo') { const idx = indicePerfiles(), id = nid('p'); idx.push({ id, nombre: 'Perfil ' + idx.length }); guardarIndice(idx); return usarPerfil(id); }
+  if (a === 'perfilBorrar') {
+    const p = indicePerfiles().find(x => x.id === el.dataset.id);
+    return openModal(`<h2 style="font-size:20px">Borrar el perfil «${esc(p ? p.nombre : '')}»</h2><p class="note">Se borran su plan, su rutina y sus registros de este dispositivo. No se puede deshacer.</p>
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-act="cerrarModal">Cancelar</button><button class="btn primary" data-act="perfilBorrarOk" data-id="${el.dataset.id}">Borrar perfil</button></div>`);
+  }
+  if (a === 'perfilBorrarOk') {
+    const id = el.dataset.id; lsDel(claveDe(id)); guardarIndice(indicePerfiles().filter(x => x.id !== id)); closeModal();
+    if (id === perfilId) cargarPerfil('principal'); else render();
+    return;
+  }
+  if (a === 'rutGuardar' || a === 'rutSugerida') {
+    const sug = a === 'rutSugerida', nombre = $('#rutNombre').value.trim() || `${sug ? 'Sugerida' : 'Mi rutina'} · ${fd(new Date())}`;
+    state.rutinas.push({ id: nid('r'), nombre, fecha: iso(new Date()), rutina: clone(sug ? rutinaBase(state.perfil, state.objetivos) : state.rutina) });
+    persist(); render(); return;
+  }
+  if (a === 'rutUsar') {
+    const r = state.rutinas.find(x => x.id === el.dataset.id); if (!r) return;
+    // La rutina que estabas usando no se pierde: si no estaba guardada, se guarda como «Anterior»
+    if (!state.rutinas.some(x => JSON.stringify(x.rutina) === JSON.stringify(state.rutina))) state.rutinas.push({ id: nid('r'), nombre: `Anterior · ${fd(new Date())}`, fecha: iso(new Date()), rutina: clone(state.rutina) });
+    state.rutina = clone(r.rutina); state.rutinaModo = 'propia'; persist();
+    ui.celebrar = `Ahora usás la rutina «${r.nombre}».`; ui.tab = 'semana'; render(); scrollTo(0, 0); return;
+  }
+  if (a === 'rutBorrar') { state.rutinas = state.rutinas.filter(x => x.id !== el.dataset.id); persist(); render(); return; }
+  if (a === 'notaAgregar') {
+    const t = $('#notaTxt').value.trim(); if (!t) return;
+    state.notas.push({ id: nid('n'), fecha: iso(new Date()), semana: semanaActual(cy, planDe(cy)).c + 1, texto: t });
+    persist(); render(); return;
+  }
+  if (a === 'notaBorrar') { state.notas = state.notas.filter(x => x.id !== el.dataset.id); persist(); render(); return; }
+  if (a === 'notasCopiar') {
+    const txt = state.notas.map(n => `${n.fecha} (semana ${n.semana}): ${n.texto}`).join('\n');
+    Promise.resolve().then(() => navigator.clipboard.writeText(txt)).then(() => { $('#notasMsg').textContent = 'Copiadas'; }, () => { $('#notasMsg').textContent = 'No pude copiarlas en este navegador'; });
+    return;
+  }
+  if (a === 'propioGuardar') {
+    const e = state.propios.find(x => x.id === el.dataset.id), [n, g, t] = el.closest('.propio').querySelectorAll('input,select');
+    Object.assign(e, { n: n.value.trim() || e.n, g: g.value, t: t.value, marca: t.value === 'salto' ? 'cm' : t.value === 'lanzamiento' ? 'm' : undefined });
+    persist(); render(); return;
+  }
+  if (a === 'propioBorrar') { state.propios = state.propios.filter(x => x.id !== el.dataset.id); persist(); render(); return; }
   if (a === 'recordatorios') return recordatorios();
   if (a === 'copiar') {
     const ta = $('#coachTxt');
@@ -827,7 +991,7 @@ document.addEventListener('click', e => {
     <p class="note">Se borran tu plan, tus ciclos, tu rutina y tus registros de este dispositivo. No se puede deshacer: si querés, descargá un respaldo antes desde la pestaña Plan.</p>
     <div class="row" style="justify-content:flex-end"><button class="btn" data-act="cerrarModal">Cancelar</button><button class="btn primary" data-act="resetOk">Borrar todo</button></div>`);
   if (a === 'resetOk') {
-    try { localStorage.removeItem(LS); } catch (err) { /* sin acceso al almacenamiento: no hay nada que borrar */ }
+    lsDel(claveDe(perfilId));
     state = ejemplo(); Object.assign(ui, { view: 'onb', paso: 0, draft: nuevoDraft(), wk: null, tab: 'semana', open: null }); saludado = false;
     closeModal(); render(); scrollTo(0, 0);
   }
@@ -883,6 +1047,7 @@ document.addEventListener('submit', e => {
       if (div.querySelector('[data-skip]').checked) { ej[it.id] = { e, s: [], skip: true }; salteados++; return; }
       const sets = leerSets(div, ejDe(e)); if (!sets.length) return;
       const en = { e, s: sets }, rpe = div.querySelector('[data-rpe]'), esf = div.querySelector('[data-esf]');
+      if (e === it.e && it.esq) en.esq = it.esq;
       if (rpe && rpe.value) en.rpe = +rpe.value;
       if (esf && esf.value) en.esf = esf.value;
       ej[it.id] = en; n += sets.length;
@@ -904,7 +1069,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modalR
 
 /* ================= ARRANQUE ================= */
 state = ejemplo(); ui.draft = nuevoDraft();
-try { const s = localStorage.getItem(LS); if (s) { state = migrar(JSON.parse(s)); ui.view = 'dash'; } } catch (e) { /* almacenamiento bloqueado: se usa el ejemplo */ }
+try { const s = lsGet(claveDe(perfilId)); if (s) { state = migrar(JSON.parse(s)); ui.view = 'dash'; } } catch (e) { /* datos ilegibles: se usa el ejemplo */ }
 iniciarMascotas();
 render();
 setTimeout(() => vueltaDisco(), 2500);
