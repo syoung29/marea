@@ -4,7 +4,7 @@
     {
       "name": "marea",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\Users\\santi\\OneDrive\\Desktop\\marea\\tools\\servidor.ps1"],
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\Users\\santi\\OneDrive\\Documentos\\marea\\tools\\servidor.ps1"],
       "port": 8765
     }
   ]
