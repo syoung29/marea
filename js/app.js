@@ -3,7 +3,7 @@ import { $, $$, esc, r25, clone, iso, parse, lunes, addD, fd, fmt, nid } from '.
 import { GRUPOS, TIPOS, MARCAS, SALTOS, EXTRA_GRUPO, ejDe, todos, registrarPropios, alternativas, EQUIPO, disponible } from './ejercicios.js';
 import {
   ENFOQUES, NIVEL, generar, elegirComp, proyeccion, veredicto, objetivoEj, rpeTxt, rendimientoSemana, veredictoSemana,
-  sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie, proyeccionAjustada, ajustesBaja, rol, ROLES, revisarRutina
+  sugerirDescarga, records, puntosLift, puntosSalto, cambios, promedioGrupo, ultimaEntrada, mejorSerie, proyeccionAjustada, ajustesBaja, rol, ROLES, revisarRutina, semanasCarga
 } from './motor.js';
 import { kilo, escena, act, decir, conectarKilo, iniciarMascotas, rodarEscena, vueltaDisco, REDUCE } from './mascotas.js';
 
@@ -242,7 +242,9 @@ function render() {
   $('#foot').hidden = state.ejemplo || ui.view === 'onb';
   if (ui.view === 'onb') return renderOnb();
   const cy = activo(), plan = planDe(cy), { raw, c } = semanaActual(cy, plan);
-  if (ui.wk == null || ui.wk >= plan.weeks.length) ui.wk = c;
+  // En una semana en pausa se muestra la semana del plan que retomás el lunes
+  const enPausa = (cy.pausas || []).includes(iso(lunes(new Date())));
+  if (ui.wk == null || ui.wk >= plan.weeks.length) ui.wk = enPausa ? Math.min(c + 1, plan.weeks.length - 1) : c;
   const html = { semana: renderSemana, progreso: renderProgreso, plan: renderPlan, rutina: renderRutina, dev: renderDev }[ui.tab](plan, cy, raw, c);
   $('#main').innerHTML = (ui.versionNueva ? `<div class="banner rec"><span><b>Hay una versión nueva de Marea.</b> Actualizá cuando termines lo que estás cargando.</span><button class="btn small primary" data-act="actualizarApp">Actualizar</button></div>` : '')
     + (state.ejemplo ? `<div class="banner"><span><b>Estás viendo un ejemplo</b> con entrenamientos ya cargados.</span><button class="btn small primary" data-act="onb">Crear mi plan</button></div>` : '') + html;
@@ -275,7 +277,10 @@ function renderSemana(plan, cy, raw, c) {
   const recs = records(plan, cy).filter(r => !ui.descartados.has(r.k + r.v));
   const bajas = state.ejemplo ? [] : ajustesBaja(plan, cy, c).filter(r => !ui.descartados.has('b' + r.k + r.v));
   const logs = (cy.logs || {})[wi] || {}, hechos = state.rutina.filter(s => logs[s.id]).length;
-  const futura = wi > c || raw < 0, ov = (cy.overrides || {})[wi];
+  // La semana actual y las que vienen se pueden convertir en descarga; la actual, además, se puede pausar si no entrenaste
+  const editable = wi >= c || raw < 0, ov = (cy.overrides || {})[wi];
+  const pausable = !state.ejemplo && wi === c && raw >= 0 && raw < N && !hechos;
+  const pausaHoy = (cy.pausas || []).includes(iso(lunes(new Date())));
   let goal;
   if (w.tipo === 'descarga') goal = [['Series', `${w.sets} por ejercicio`, ''], ['Intensidad', `~${Math.round(w.int)}% 1RM`, 'intensidad'], ['RPE', '6', 'rpe']];
   else if (w.tipo === 'test') goal = [['Básicos', 'Test de 1RM', 'rm'], ['Resto', 'Liviano u opcional', '']];
@@ -286,6 +291,7 @@ function renderSemana(plan, cy, raw, c) {
   ${haciaDonde(plan, cy)}
   ${recs.length ? `<div class="banner rec"><span>Con lo que cargaste, subió tu 1RM estimado: ${recs.map(r => `<b>${esc(corto(r.k))}</b> <span class="num">${plan.p.rm[r.k] > 0 ? fmt(plan.p.rm[r.k], 'kg') + ' → ' : ''}${fmt(r.v, 'kg')}</span>`).join(' · ')}. ¿Lo actualizo? Las cargas sugeridas se recalculan.</span><span class="row"><button class="btn small ghost" data-act="descartar" data-id="${recs.map(r => r.k + r.v).join(',')}">Ahora no</button><button class="btn small primary" data-act="usarRM" data-rs="${recs.map(r => r.k + ':' + r.v).join(',')}">Actualizar</button></span></div>` : ''}
   ${bajas.length ? `<div class="banner warn"><span>En tus últimas semanas de carga quedaste por debajo de lo planeado en ${bajas.map(r => `<b>${esc(corto(r.k))}</b> <span class="num">${fmt(plan.p.rm[r.k], 'kg')} → ${fmt(r.v, 'kg')}</span>`).join(' · ')}. ¿Ajusto tu 1RM? Las cargas quedan alcanzables y la proyección se recalcula.</span><span class="row"><button class="btn small ghost" data-act="descartar" data-id="${bajas.map(r => 'b' + r.k + r.v).join(',')}">Ahora no</button><button class="btn small primary" data-act="usarRM" data-rs="${bajas.map(r => r.k + ':' + r.v).join(',')}">Ajustar</button></span></div>` : ''}
+  ${pausaHoy && !state.ejemplo ? `<div class="banner"><span><b>Esta semana está en pausa.</b> El plan sigue el lunes ${fd(addD(lunes(new Date()), 7))} donde lo dejaste. Si al final entrenás, deshacela.</span><button class="btn small" data-act="despausar">Deshacer la pausa</button></div>` : ''}
   ${sug ? `<div class="banner warn"><span>Esta semana quedaste por debajo de lo planeado. Conviene <b>adelantar la descarga a la semana ${wi + 2}</b>.</span><button class="btn small" data-act="adelantar" data-i="${wi + 1}">Adelantar descarga</button></div>` : ''}
   <section class="card" aria-label="Semana seleccionada">
     <div class="week-head">
@@ -299,7 +305,10 @@ function renderSemana(plan, cy, raw, c) {
     <dl class="week-goal">${goal.map(([a, b, t]) => `<div><dt>${a} ${t ? ay(t) : ''}</dt><dd>${b}</dd></div>`).join('')}</dl>
     <div class="row" style="margin-top:12px;justify-content:space-between">
       ${ver ? `<span class="tag ${ver.cls}">${ver.txt}</span>` : `<span class="note">${hechos ? 'Esta semana no tiene comparación con el plan.' : 'Cuando cargues entrenamientos, te muestro cómo vas contra lo planeado.'}</span>`}
-      ${futura && w.tipo !== 'test' && !state.ejemplo && (ov || w.tipo === 'carga') ? `<button class="btn small ghost" data-act="toggleDes" data-i="${wi}">${ov ? 'Volver a semana de carga' : 'Convertir en descarga'}</button>` : ''}
+      <span class="row" style="gap:6px">
+      ${editable && w.tipo !== 'test' && !state.ejemplo && (ov || w.tipo === 'carga') ? `<button class="btn small ghost" data-act="toggleDes" data-i="${wi}">${ov ? 'Volver a semana de carga' : 'Convertir en descarga'}</button>` : ''}
+      ${pausable && !pausaHoy ? '<button class="btn small ghost" data-act="pausar">No puedo entrenar esta semana</button>' : ''}
+      </span>
     </div>
   </section>
   <div class="stack" style="gap:10px">${state.rutina.length ? state.rutina.map((s, i) => sesion(plan, cy, wi, s, i)).join('') : '<p class="note">No tenés entrenamientos en tu rutina. Agregalos en la pestaña Rutina.</p>'}${deOtraRutina(plan, cy, wi)}</div>`;
@@ -513,7 +522,7 @@ function renderPlan(plan, cy, raw, c) {
     <h2 style="font-size:22px;margin:4px 0 14px">${N} semanas · ${fd(ini)} – ${fd(addD(ini, N * 7 - 1))}</h2>
     <div class="cols">
       <dl class="meta-list">
-        <div><dt>Ritmo ${ay('bloque')}</dt><dd>${plan.L} semanas de carga + 1 de descarga</dd></div>
+        <div><dt>Ritmo ${ay('bloque')}</dt><dd>${state.ejemplo ? `${plan.L} semanas de carga + 1 de descarga` : `<select class="in in-sm" id="ritmo" aria-label="Semanas de carga por bloque">${[[0, `Automático (${semanasCarga(plan.nivel, p.recuperacion, (p.prefs || {}).deporteDias || 0)} + 1)`], ...[2, 3, 4, 5, 6].map(x => [x, `${x} de carga + 1 de descarga`])].map(([v, t]) => `<option value="${v}" ${(p.carga || 0) === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`}</dd></div>
         <div><dt>Próxima descarga</dt><dd>${nextDes < 0 ? '—' : 'semana ' + (nextDes + 1)}</dd></div>
         <div><dt>Nivel estimado</dt><dd>${NIVEL[plan.nivel]}</dd></div>
       </dl>
@@ -1044,6 +1053,22 @@ document.addEventListener('click', e => {
   }
   if (a === 'descartar') { el.dataset.id.split(',').forEach(id => ui.descartados.add(id)); render(); return; }
   if (a === 'adelantar') { cy.overrides = cy.overrides || {}; cy.overrides[+el.dataset.i] = 'descarga'; persist(); render(); return; }
+  // Pausa: corre todo el plan una semana. La semana actual queda libre; los registros se guardan por semana del plan, así que no se tocan.
+  if (a === 'pausar') {
+    return openModal(`<h2 style="font-size:20px">¿No podés entrenar esta semana?</h2>
+      <p class="note">Corro todo el plan una semana: esta semana queda libre y el lunes ${fd(addD(lunes(new Date()), 7))} retomás donde lo dejaste. Tus registros no cambian y lo podés deshacer.</p>
+      ${cy.comp ? `<p class="note">Tenés ${esc(cy.comp.nombre)} el ${fd(parse(cy.comp.fecha))}: para llegar a tiempo, el ciclo se acorta una semana.</p>` : ''}
+      <div class="row" style="justify-content:flex-end"><button class="btn" data-act="cerrarModal">Cancelar</button><button class="btn primary" data-act="pausarOk">Pausar esta semana</button></div>`);
+  }
+  if (a === 'pausarOk') {
+    cy.inicio = iso(addD(parse(cy.inicio), 7)); cy.pausas = [...(cy.pausas || []), iso(lunes(new Date()))];
+    ui.wk = null; persist(); closeModal(); ui.celebrar = 'Listo, semana en pausa. Descansá y retomamos el lunes.'; render(); return;
+  }
+  if (a === 'despausar') {
+    const hoy = iso(lunes(new Date()));
+    if ((cy.pausas || []).includes(hoy)) { cy.inicio = iso(addD(parse(cy.inicio), -7)); cy.pausas = cy.pausas.filter(x => x !== hoy); }
+    ui.wk = null; persist(); render(); return;
+  }
   if (a === 'toggleDes') { const i = +el.dataset.i; cy.overrides = cy.overrides || {}; if (cy.overrides[i]) delete cy.overrides[i]; else cy.overrides[i] = 'descarga'; persist(); render(); return; }
   if (a === 'perfil') return modalPerfil();
   if (a === 'prefs') return modalPrefs();
@@ -1131,6 +1156,13 @@ document.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset && t.dataset.ns) { const inp = document.getElementById(t.dataset.ns); inp.disabled = t.checked; if (t.checked) inp.value = ''; }
   if (t.name === 'modoObj') { const w = $('#goalsWrap'); if (w) w.hidden = t.value !== 'esp'; }
+  // Ritmo de carga y descarga elegido a mano: se rehace el ciclo actual (misma fecha de inicio y mismos registros)
+  if (t.id === 'ritmo') {
+    const v = +t.value, cy = activo();
+    state.perfil.carga = v; cy.snap.perfil.carga = v; cy.overrides = {};
+    persist(); ui.planSel = null; render();
+    const L = planDe(cy).L; decir(`Listo: ${L} semanas de carga y 1 de descarga. Recalculé el ciclo.`);
+  }
   if (t.hasAttribute && t.hasAttribute('data-skip')) t.closest('.ex').classList.toggle('skip', t.checked);
   // Cambiar un ejercicio solo por hoy: se redibuja ese ejercicio con el nuevo, sin tocar la rutina ni lo ya escrito en los otros
   if (t.hasAttribute && t.hasAttribute('data-swap')) {
